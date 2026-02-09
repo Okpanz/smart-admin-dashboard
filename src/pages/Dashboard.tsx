@@ -119,7 +119,7 @@ export function Dashboard() {
         {/* Stats Row */}
         <div className="flex flex-col sm:flex-row gap-6">
             <StatCard 
-                label="Total Enrollments" 
+                label="Total Verifications" 
                 value={loading ? "..." : stats?.total.value.toLocaleString() || "0"} 
                 change={stats?.total.change || "0%"} 
                 trend="up" 

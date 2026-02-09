@@ -15,13 +15,13 @@ export function EnrollmentTrendChart({ data = [] }: Props) {
     <div className="rounded-3xl bg-white p-6 shadow-sm">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Enrollment Trends</h3>
+          <h3 className="text-lg font-bold text-gray-900">Verification Trends</h3>
         </div>
         <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
+            {/* <div className="flex items-center space-x-2">
                 <span className="h-3 w-3 rounded-full bg-dark-900"></span>
                 <span className="text-xs text-gray-500 font-medium">Enrolled</span>
-            </div>
+            </div> */}
             <div className="flex items-center space-x-2">
                 <span className="h-3 w-3 rounded-full bg-primary-300"></span>
                 <span className="text-xs text-gray-500 font-medium">Verified</span>
@@ -37,12 +37,12 @@ export function EnrollmentTrendChart({ data = [] }: Props) {
             {data.reduce((acc, curr) => acc + curr.enrolled, 0).toLocaleString()}
           </h2>
           <div className="bg-white shadow-lg rounded-xl p-2 mb-2 flex space-x-4 text-xs">
-             <div>
+             {/* <div>
                 <span className="block text-gray-400">Enrolled</span>
                 <span className="font-bold text-dark-900">
                   {data.reduce((acc, curr) => acc + curr.enrolled, 0).toLocaleString()}
                 </span>
-             </div>
+             </div> */}
              <div>
                 <span className="block text-gray-400">Verified</span>
                 <span className="font-bold text-primary-500">
