@@ -1,4 +1,3 @@
-
 interface SkeletonProps {
   className?: string;
 }

@@ -24,7 +24,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { logout, user } = useAuth();
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
-    { name: 'Verification', icon: Users, path: '/enrollments' },
+    { name: 'Enrollments', icon: Users, path: '/enrollments' },
     { name: 'Services', icon: Building2, path: '/services' },
     { name: 'Staff Management', icon: UserCog, path: '/staff' },
     { name: 'Audit Logs', icon: FileText, path: '/audit' },

@@ -11,6 +11,7 @@ import { AuditLogs } from './pages/AuditLogs';
 import { SystemHealth } from './pages/SystemHealth';
 import { StaffList } from './pages/StaffList';
 import { StaffDetails } from './pages/StaffDetails';
+import { LivenessCheckPage } from './pages/LivenessCheckPage';
 
 const AppShell = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
@@ -23,6 +24,7 @@ function App() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
+      <Route path="/liveness-check" element={<LivenessCheckPage />} />
 
       {/* Protected */}
       <Route

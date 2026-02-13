@@ -51,6 +51,7 @@ export function Dashboard() {
   const fetchStats = async () => {
     try {
       const response = await api.get('/dashboard/stats');
+      console.log('Dashboard Stats Response:', response.data);
       const data = response.data.data || response.data;
       setStats(data);
     } catch (error) {
@@ -120,23 +121,23 @@ export function Dashboard() {
         <div className="flex flex-col sm:flex-row gap-6">
             <StatCard 
                 label="Total Verifications" 
-                value={loading ? "..." : stats?.total.value.toLocaleString() || "0"} 
-                change={stats?.total.change || "0%"} 
+                value={loading ? "..." : stats?.total?.value?.toLocaleString() || "0"} 
+                change={stats?.total?.change || "0%"} 
                 trend="up" 
                 icon={Users} 
             />
             <StatCard 
                 label="Verified" 
-                value={loading ? "..." : stats?.verified.value.toLocaleString() || "0"} 
-                change={stats?.verified.change || "0%"} 
+                value={loading ? "..." : stats?.verified?.value?.toLocaleString() || "0"} 
+                change={stats?.verified?.change || "0%"} 
                 trend="up" 
                 icon={FileCheck} 
             />
              <StatCard 
                 label="Pending" 
-                value={loading ? "..." : stats?.pending.value.toLocaleString() || "0"} 
-                change={stats?.pending.change || "0%"} 
-                trend={stats?.pending.value ? "up" : "neutral"} 
+                value={loading ? "..." : stats?.pending?.value?.toLocaleString() || "0"} 
+                change={stats?.pending?.change || "0%"} 
+                trend={stats?.pending?.value ? "up" : "neutral"} 
                 icon={Building2} 
             />
         </div>
