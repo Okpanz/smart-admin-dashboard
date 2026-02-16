@@ -52,20 +52,18 @@ export function VerificationPage() {
             params = { employee_no: input };
         }
 
-        // console.log(params)
         try {
-            // Using direct axios call as the base URL is different from the main API
-            // Using query parameters for GET request as user specified GET
-            const response = await axios.get('/api/v1/get-pensionaire-verification-info', {
-                params: params
-            });
+            const employeeNoParam = params.employee_no;
+            const url = `https://i-am-alive-sever.onrender.com/pensionaire/verify?employee_no=${encodeURIComponent(employeeNoParam)}`;
 
-            console.log('Verification API Response:', response.data); // Log full response
+            const response = await axios.get(url);
+            console.log('Verification API Response:', response.data);
 
-            if (response.data.status) {
-                setData(response.data.data);
+            const apiData = response.data;
+            if (apiData && apiData.data && apiData.data.status && apiData.data.data) {
+                setData(apiData.data.data);
             } else {
-                setError(response.data.message || 'Verification failed. Please check your details.');
+                setError(apiData?.message || 'Verification failed. Please check your details.');
             }
         } catch (err) {
             console.error('Verification error:', err);
