@@ -22,28 +22,28 @@ export function Login() {
 
     // Determine where to redirect after login
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const from = (location.state as any)?.from?.pathname || '/';
+    const from = (location.state as any)?.from?.pathname || '/dashboard';
 
     try {
       const response = await api.post('/auth/login', { email, password, platform: 'web' });
       const { data } = response.data;
-      
+
       if (data && data.token && data.user) {
-         login(data.token, data.user);
-         navigate(from, { replace: true });
+        login(data.token, data.user);
+        navigate(from, { replace: true });
       } else if (data && data.token) {
-         login(data.token, data); 
-         navigate(from, { replace: true });
+        login(data.token, data);
+        navigate(from, { replace: true });
       } else {
         const { token, ...user } = response.data;
         if (token) {
-           login(token, user);
-           navigate(from, { replace: true });
+          login(token, user);
+          navigate(from, { replace: true });
         } else {
-           throw new Error('Invalid response from server');
+          throw new Error('Invalid response from server');
         }
       }
-      
+
     } catch (err) {
       console.error('Login error:', err);
       const errorMessage = (err as any).response?.data?.message || 'Invalid email or password. Please try again.';
@@ -163,9 +163,9 @@ export function Login() {
           </form>
         </div>
         <div className="bg-gray-50 px-8 py-4 border-t border-gray-100">
-            <p className="text-xs text-center text-gray-500">
-                &copy; 2025 SmartVerify. All rights reserved.
-            </p>
+          <p className="text-xs text-center text-gray-500">
+            &copy; 2025 SmartVerify. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
