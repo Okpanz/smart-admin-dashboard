@@ -113,9 +113,12 @@ export function LivenessCheckPage() {
         console.groupEnd();
 
         try {
-            const response = await axios.post('https://i-am-alive-sever.onrender.com/i-am-alive/capture', submissionData);
-
-            console.log('Server Response:', response.data);
+            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/capture`;
+            const response = await axios.post(url, submissionData);
+            if (typeof response.data === 'string' && response.data.toLowerCase().includes('<!doctype html')) {
+                throw new Error('Verification endpoint returned HTML instead of JSON. Check deployment URL configuration.');
+            }
             toast.success(`Verification Submitted! Confidence: ${confidence}%`, { id: toastId });
             navigate('/');
         } catch (err) {
