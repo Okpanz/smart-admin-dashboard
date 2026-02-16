@@ -9,7 +9,7 @@ import {
     Loader2,
     Search
 } from 'lucide-react';
-import { format } from 'date-fns';
+const format = (date: Date) => date.toLocaleString();
 import toast from 'react-hot-toast';
 
 interface Capture {
@@ -51,7 +51,9 @@ export function LivenessReportPage() {
     const fetchCaptures = async () => {
         setIsLoading(true);
         try {
-            const response = await axios.get<ApiResponse>('https://i-am-alive-sever.onrender.com/i-am-alive/captures');
+            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
+            const response = await axios.get<ApiResponse>(url);
             if (response.data.success) {
                 setCaptures(response.data.data);
             } else {
@@ -74,7 +76,8 @@ export function LivenessReportPage() {
     const getImageUrl = (path: string) => {
         if (path.startsWith('http')) return path;
         // Assuming the server serves uploads statically or we need a base URL
-        return `https://i-am-alive-sever.onrender.com/${path}`;
+        const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+        return `${baseUrl.replace(/\/$/, '')}/${path}`;
     };
 
     return (
@@ -179,7 +182,7 @@ export function LivenessReportPage() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3 text-gray-400" />
-                                                {format(new Date(capture.capturedAt), 'MMM d, yyyy HH:mm')}
+                                                {format(new Date(capture.capturedAt))}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -247,7 +250,7 @@ export function LivenessReportPage() {
                                         </div>
                                         <div className="pt-2 border-t border-gray-200">
                                             <p className="text-xs text-gray-500">Capture Time</p>
-                                            <p className="text-sm text-gray-700">{format(new Date(selectedCapture.capturedAt), 'PPPP pp')}</p>
+                                            <p className="text-sm text-gray-700">{format(new Date(selectedCapture.capturedAt))}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500">Confidence Score</p>

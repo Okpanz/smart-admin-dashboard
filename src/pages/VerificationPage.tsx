@@ -178,7 +178,7 @@ export function VerificationPage() {
                                 <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
                                     <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
                                         <img
-                                            src={`https://rivers.thesmartapps.org/images/${data.employee_no || data.employment_number}.png`}
+                                            src={`${import.meta.env.DEV ? '/images' : 'https://rivers.thesmartapps.org/images'}/${data.employee_no || data.employment_number}.png`}
                                             onError={(e) => {
                                                 // Fallback to placeholder if image fails
                                                 e.currentTarget.style.display = 'none';
