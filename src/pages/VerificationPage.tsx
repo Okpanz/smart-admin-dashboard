@@ -45,13 +45,14 @@ export function VerificationPage() {
         // Smart detection of input type
         let params: Record<string, string> = {};
         if (/^\d{11}$/.test(input)) {
-            params = { bvn: input };
+            params = { employee_no: input };
         } else if (/^\d{10}$/.test(input)) {
-            params = { account_number: input };
+            params = { employee_no: input };
         } else {
             params = { employee_no: input };
         }
 
+        // console.log(params)
         try {
             // Using direct axios call as the base URL is different from the main API
             // Using query parameters for GET request as user specified GET
