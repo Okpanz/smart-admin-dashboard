@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
 
 import { Dashboard } from './pages/Dashboard';
 import { LandingPage } from './pages/LandingPage';
@@ -23,12 +24,20 @@ const AppShell = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+const RootRoute = () => {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <LandingPage />;
+};
+
 function App() {
   return (
     <>
       <Routes>
         {/* Public */}
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<RootRoute />} />
         <Route path="/verification" element={<VerificationPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/liveness-check" element={<LivenessCheckPage />} />

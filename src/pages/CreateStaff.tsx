@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Mail, Lock, User, Building2 } from 'lucide-react';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 interface Service {
   _id: string;
@@ -11,6 +12,7 @@ interface Service {
 
 export function CreateStaff() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,6 +26,12 @@ export function CreateStaff() {
   useEffect(() => {
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    if (user?.role === 'service_admin' && user.service_id && !formData.service_id) {
+      setFormData(prev => ({ ...prev, service_id: user.service_id }));
+    }
+  }, [user, formData.service_id]);
 
   const fetchServices = async () => {
     try {
@@ -54,10 +62,17 @@ export function CreateStaff() {
     setError('');
 
     try {
-        await api.post('/auth/create-adhock-staff', formData);
+        const payload = {
+          ...formData,
+          service_id:
+            user?.role === 'service_admin' && user.service_id
+              ? user.service_id
+              : formData.service_id
+        };
+        await api.post('/auth/create-adhock-staff', payload);
         
         // Show success message or redirect
-        navigate('/'); // Navigate back to dashboard or staff list
+        navigate('/staff');
     } catch (err) {
         console.error(err);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,7 +91,7 @@ export function CreateStaff() {
           <p className="text-gray-500 mt-1">Add a new staff member to the system</p>
         </div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/staff')}
           className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -147,6 +162,7 @@ export function CreateStaff() {
                         </label>
                         <select
                             required
+                            disabled={user?.role === 'service_admin'}
                             className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 transition-colors"
                             value={formData.service_id}
                             onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
