@@ -110,7 +110,7 @@ export function VerificationPage() {
             <main className="flex-1 flex flex-col items-center justify-center p-4 py-12">
                 <div className="w-full max-w-md">
                     <div className="text-center mb-10">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Identify Verification</h1>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Identity Verification</h1>
                         <p className="text-gray-600">Enter your details to verify your identity before proceeding.</p>
                     </div>
 

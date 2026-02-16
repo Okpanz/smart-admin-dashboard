@@ -7,12 +7,13 @@ import {
   Shield,
   Gem,
   DoorOpen,
-  X
+  X,
+  Activity
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import SmartVerifyIcon  from '../assets/icon.png';
+import SmartVerifyIcon from '../assets/icon.png';
 import { RefreshCw } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,6 +32,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Audit Logs', icon: FileText, path: '/audit' },
     { name: 'System Health', icon: Shield, path: '/health' },
     { name: 'Sync', icon: RefreshCw, path: '/sync' },
+    { name: 'Liveness Report', icon: Activity, path: '/liveness-report' },
   ];
 
   const filteredNavItems = navItems.filter(item => {

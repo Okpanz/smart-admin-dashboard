@@ -16,6 +16,7 @@ import { StaffList } from './pages/StaffList';
 import { StaffDetails } from './pages/StaffDetails';
 import { LivenessCheckPage } from './pages/LivenessCheckPage';
 import { Sync } from './pages/Sync';
+import { LivenessReportPage } from './pages/LivenessReportPage';
 import { Toaster } from 'react-hot-toast';
 
 const AppShell = ({ children }: { children: React.ReactNode }) => (
@@ -115,6 +116,15 @@ function App() {
           element={
             <AppShell>
               <Sync />
+            </AppShell>
+          }
+        />
+
+        <Route
+          path="/liveness-report"
+          element={
+            <AppShell>
+              <LivenessReportPage />
             </AppShell>
           }
         />
