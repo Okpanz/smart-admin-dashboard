@@ -115,7 +115,9 @@ export function LivenessCheckPage() {
         try {
             const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/capture`;
+            console.log('Verification API URL:', url);
             const response = await axios.post(url, submissionData);
+            console.log('Verification API Response:', response.data);
             if (typeof response.data === 'string' && response.data.toLowerCase().includes('<!doctype html')) {
                 throw new Error('Verification endpoint returned HTML instead of JSON. Check deployment URL configuration.');
             }
