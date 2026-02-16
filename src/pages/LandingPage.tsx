@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, BarChart3, Users, Lock, CheckCircle, ArrowRight, Activity, FileText, Download } from 'lucide-react';
+import { Shield, BarChart3, Users, Lock,  ArrowRight, Activity, FileText, Download } from 'lucide-react';
 
 export function LandingPage() {
     const navigate = useNavigate();
