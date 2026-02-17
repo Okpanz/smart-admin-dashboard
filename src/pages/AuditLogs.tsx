@@ -107,6 +107,38 @@ export function AuditLogs() {
         );
     }
 
+    if (log.action === 'EXECUTE_ENROLLMENT_SYNC') {
+        return (
+            <div className="text-sm">
+                <div className="font-medium text-gray-900">
+                    Employee: {details.employeeId || '-'}
+                </div>
+                <div className="text-xs text-gray-500">
+                    Service: {details.serviceId ?? '-'} • Base URL: {details.baseUrl || '-'}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                    Dry run: {String(details.dryRun ?? false)}
+                </div>
+            </div>
+        );
+    }
+
+    if (log.action === 'MARK_ENROLLMENT_SYNCED') {
+        return (
+            <div className="text-sm">
+                <div className="font-medium text-gray-900">
+                    Employee: {details.employeeId || '-'}
+                </div>
+                <div className="text-xs text-gray-500">
+                    Service: {details.serviceId ?? '-'}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                    Marked by: {details.performedBy || log.performed_by || 'System'}
+                </div>
+            </div>
+        );
+    }
+
     if (log.action.includes('ENROLLMENT')) {
          return (
             <div className="text-sm">
