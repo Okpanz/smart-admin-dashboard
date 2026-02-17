@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRef, useEffect, useState } from 'react';
 import { FaceMesh } from '@mediapipe/face_mesh';
-import { Camera } from '@mediapipe/camera_utils';
+import { Camera as MPCamera } from '@mediapipe/camera_utils';
+import { SwitchCamera } from 'lucide-react';
 
 interface LivenessCheckProps {
     onComplete?: (success: boolean) => void;
@@ -27,8 +28,9 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     const [currentStep, setCurrentStep] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState('Position your face in the frame');
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
     const faceMeshRef = useRef<FaceMesh | null>(null);
-    const cameraRef = useRef<Camera | null>(null);
+    const cameraRef = useRef<MPCamera | null>(null);
 
     // Refs for state accessible inside MediaPipe callbacks
     const currentStepRef = useRef(0);
@@ -52,12 +54,12 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         {
             direction: 'left',
             instruction: 'Turn your head LEFT',
-            check: (r) => r.yawRatio < 0.6 // Nose closer to left eye
+            check: (r) => r.yawRatio > 1.6 // Swapped: logic for Left
         },
         {
             direction: 'right',
             instruction: 'Turn your head RIGHT',
-            check: (r) => r.yawRatio > 1.6 // Nose closer to right eye
+            check: (r) => r.yawRatio < 0.6 // Swapped: logic for Right
         },
         {
             direction: 'up',
@@ -75,7 +77,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         try {
             // Explicitly request camera permission first to handle errors better
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: 640, height: 480, facingMode: 'user' }
+                video: { width: 640, height: 480, facingMode: facingMode }
             });
 
             if (videoRef.current) {
@@ -107,7 +109,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
 
             if (videoRef.current) {
                 // Use Camera utility from MediaPipe to manage sending frames
-                const camera = new Camera(videoRef.current, {
+                const camera = new MPCamera(videoRef.current, {
                     onFrame: async () => {
                         if (faceMeshRef.current && videoRef.current) {
                             await faceMeshRef.current.send({ image: videoRef.current });
@@ -174,6 +176,12 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const cropX = (vw - cropW) / 2;
         const cropY = (vh - cropH) / 2;
 
+        // Flip horizontally for mirror effect ONLY if using front camera
+        if (facingMode === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+
         ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
         ctx.restore();
     };
@@ -187,6 +195,12 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const ZOOM_FACTOR = 1.8;
 
         ctx.save();
+        ctx.save();
+        // Flip horizontally to match the mirrored video ONLY if using front camera
+        if (facingMode === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
         drawFaceMesh(ctx, landmarks, canvas.width, canvas.height, ZOOM_FACTOR);
         ctx.restore();
     };
@@ -333,13 +347,26 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         console.log('Using Ratio-Based Detection Logic with 1.8x Zoom');
         void initializeFaceDetection();
         return () => cleanup();
-    }, []);
+    }, [facingMode]);
+
+    const toggleCamera = () => {
+        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    };
 
     return (
         <div className="flex flex-col items-center justify-center w-full h-full p-2 overflow-hidden">
             <div className="relative w-full flex-1 min-h-0 flex items-center justify-center overflow-hidden rounded-xl bg-black shadow-lg">
                 <video ref={videoRef} className="hidden" playsInline />
                 <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
+
+                {/* Camera Toggle Button */}
+                <button
+                    onClick={toggleCamera}
+                    className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all shadow-lg z-10"
+                    title="Switch Camera"
+                >
+                    <SwitchCamera className="w-6 h-6" />
+                </button>
             </div>
 
             <div className="mt-4 w-full max-w-xl text-center flex flex-col items-center">

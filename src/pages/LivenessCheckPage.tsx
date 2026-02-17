@@ -114,7 +114,8 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const url = `https://i-am-alive-sever.onrender.com/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
+            const baseUrl = import.meta.env.DEV ? '' : 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', url);
             const response = await axios.get(url);
             console.log('Verification API Response:', response.data);
@@ -139,6 +140,9 @@ export function LivenessCheckPage() {
         setError(null);
 
         try {
+            // Add artificial delay for UX
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             // 1. Process Captured Image
             // Create an HTMLImageElement from the base64 string
             const capturedImg = await faceapi.fetchImage(capturedImage);
