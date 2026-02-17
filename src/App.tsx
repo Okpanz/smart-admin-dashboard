@@ -33,6 +33,21 @@ const RootRoute = () => {
   return <LandingPage />;
 };
 
+const LivenessReportRoute = () => {
+  const { user } = useAuth();
+  const allowedLivenessServiceIds = ['234082052', '234078915', '234079021', '234080703'];
+  const canAccessLivenessReport =
+    user?.role === 'service_admin' &&
+    user.service_id &&
+    allowedLivenessServiceIds.includes(String(user.service_id));
+
+  if (!canAccessLivenessReport) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <LivenessReportPage />;
+};
+
 function App() {
   return (
     <>
@@ -124,7 +139,7 @@ function App() {
           path="/liveness-report"
           element={
             <AppShell>
-              <LivenessReportPage />
+              <LivenessReportRoute />
             </AppShell>
           }
         />

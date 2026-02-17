@@ -24,6 +24,9 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { logout, user } = useAuth();
+  const allowedLivenessServiceIds = ['234082052', '234078915', '234079021', '234080703'];
+  const canAccessLivenessReport =
+    user?.role === 'service_admin' && user.service_id && allowedLivenessServiceIds.includes(String(user.service_id));
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Enrollments', icon: Users, path: '/enrollments' },
@@ -36,6 +39,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const filteredNavItems = navItems.filter(item => {
+    if (item.name === 'Liveness Report') {
+      return canAccessLivenessReport;
+    }
     if (user?.role === 'service_admin') {
       return !['Services', 'System Health'].includes(item.name);
     }

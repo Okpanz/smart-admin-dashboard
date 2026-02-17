@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 const format = (date: Date) => date.toLocaleString();
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 interface Capture {
     _id: string;
@@ -43,17 +44,28 @@ export function LivenessReportPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCapture, setSelectedCapture] = useState<Capture | null>(null);
+    const { token } = useAuth();
 
     useEffect(() => {
-        fetchCaptures();
-    }, []);
+        if (token) {
+            fetchCaptures();
+        }
+    }, [token]);
 
     const fetchCaptures = async () => {
         setIsLoading(true);
         try {
-            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl =
+                (import.meta as { env: { [key: string]: string } }).env
+                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
-            const response = await axios.get<ApiResponse>(url);
+            const response = await axios.get<ApiResponse>(url, {
+                headers: token
+                    ? {
+                          Authorization: `Bearer ${token}`
+                      }
+                    : undefined
+            });
             if (response.data.success) {
                 setCaptures(response.data.data);
             } else {
