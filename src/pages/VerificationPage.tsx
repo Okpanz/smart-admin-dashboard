@@ -54,8 +54,12 @@ export function VerificationPage() {
 
         try {
             const employeeNoParam = params.employee_no;
-            const baseUrl = import.meta.env.DEV ? '' : 'https://i-am-alive-server.onrender.com';
-            const url = `${baseUrl}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNoParam)}`;
+            const baseUrl =
+                (import.meta as { env: { [key: string]: string } }).env
+                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(
+                employeeNoParam
+            )}`;
 
             const response = await axios.get(url);
             console.log('Verification API Response:', response.data);
