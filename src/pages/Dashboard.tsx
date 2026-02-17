@@ -118,7 +118,7 @@ export function Dashboard() {
       {/* Middle Column (45%) */}
       <div className="w-full xl:w-[45%] flex flex-col gap-6">
         {/* Stats Row */}
-        <div className="flex flex-col sm:flex-row gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <StatCard 
                 label="Total Verifications" 
                 value={loading ? "..." : stats?.total?.value?.toLocaleString() || "0"} 
