@@ -114,8 +114,8 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const baseUrl = import.meta.env.DEV ? '' : 'https://i-am-alive-server.onrender.com';
-            const url = `${baseUrl}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
+            const baseUrl = 'https://rivers.thesmartapps.org/api/v1/get-pensionaire-verification-info';
+            const url = `${baseUrl}?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', url);
             const response = await axios.get(url);
             console.log('Verification API Response:', response.data);
@@ -143,10 +143,23 @@ export function LivenessCheckPage() {
             // Add artificial delay for UX
             await new Promise(resolve => setTimeout(resolve, 2000));
 
+            console.log('handleMatch start', {
+                hasCapturedImage: !!capturedImage,
+                capturedImageLength: capturedImage.length,
+                capturedImagePreview: capturedImage.substring(0, 64),
+                modelsLoaded,
+                employeeNo: employeeData.employee_no || employeeData.employment_number,
+            });
+
             // 1. Process Captured Image
             // Create an HTMLImageElement from the base64 string
             const capturedImg = await faceapi.fetchImage(capturedImage);
+            console.log('Captured image loaded for faceapi', {
+                width: capturedImg.width,
+                height: capturedImg.height,
+            });
             const capturedDetection = await faceapi.detectSingleFace(capturedImg).withFaceLandmarks().withFaceDescriptor();
+            console.log('Captured detection present', !!capturedDetection);
 
             if (!capturedDetection) {
                 throw new Error('Could not detect a face in the captured live image. Please retake.');
@@ -155,6 +168,7 @@ export function LivenessCheckPage() {
             // 2. Process Official Photo
             // Use the proxy path /images/... to avoid CORS
             const officialPhotoUrl = `/images/${employeeData.employee_no || employeeData.employment_number}.png`;
+            console.log('Official photo URL', officialPhotoUrl);
 
             // We need to fetch it as a blob first to handle errors gracefully, or use faceapi.fetchImage
             let officialImg: HTMLImageElement;
@@ -166,6 +180,7 @@ export function LivenessCheckPage() {
             }
 
             const officialDetection = await faceapi.detectSingleFace(officialImg).withFaceLandmarks().withFaceDescriptor();
+            console.log('Official detection present', !!officialDetection);
 
             if (!officialDetection) {
                 throw new Error('Could not detect a face in the official employee photo.');
