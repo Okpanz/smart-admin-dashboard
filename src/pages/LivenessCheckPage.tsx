@@ -167,7 +167,7 @@ export function LivenessCheckPage() {
 
             // 2. Process Official Photo
             // Use the proxy path /images/... to avoid CORS
-            const officialPhotoUrl = `/images/${employeeData.employee_no || employeeData.employment_number}.png`;
+            const officialPhotoUrl = `https://rivers.thesmartapps.org/images/${employeeData.employee_no || employeeData.employment_number}.png`;
             console.log('Official photo URL', officialPhotoUrl);
 
             // We need to fetch it as a blob first to handle errors gracefully, or use faceapi.fetchImage
