@@ -16,6 +16,22 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/bvn-images': {
+        target: 'https://rivers.thesmartapps.org',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Proxy for Liveness Check & Report APIs
+      '/pensionaire': {
+        target: 'https://i-am-alive-sever.onrender.com',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/i-am-alive': {
+        target: 'https://i-am-alive-sever.onrender.com',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })

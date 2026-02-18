@@ -38,6 +38,7 @@ export function LivenessCheckPage() {
             const MODEL_URL = '/models';
             await Promise.all([
                 faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
             ]);
@@ -79,21 +80,27 @@ export function LivenessCheckPage() {
         setIsSubmitting(false);
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (
+        overrideMatchResult?: 'match' | 'no-match' | null,
+        overrideMatchScore?: number | null
+    ) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
         const toastId = toast.loading('Submitting verification...');
 
+        const finalMatchResult = overrideMatchResult ?? matchResult;
+        const finalMatchScore = overrideMatchScore ?? matchScore;
+
         // Calculate confidence level
-        const confidence = matchScore !== null
-            ? (Math.exp(-matchScore * 5) * 100).toFixed(2)
+        const confidence = finalMatchScore !== null
+            ? (Math.exp(-finalMatchScore * 5) * 100).toFixed(2)
             : '0.00';
 
         const submissionData = {
             employee_no: employeeData.employee_no || employeeData.employment_number,
             bvn: employeeData.bvn || 'N/A',
             account_number: employeeData.account_number || 'N/A',
-            image_match: matchResult === 'match',
+            image_match: finalMatchResult === 'match',
             firstName: employeeData.first_name,
             lastName: employeeData.surname,
             middleName: employeeData.middle_name || '',
@@ -101,10 +108,13 @@ export function LivenessCheckPage() {
             // MAPPING FIX: The API returns `idemp_info`, so we use that. Fallback to `id`.
             emp_info_id: employeeData.idemp_info || employeeData.id || employeeData.emp_info_id,
             service_id: employeeData.service_id || 'N/A',
+            phone: employeeData.phone || 'N/A',
+            phone_number: employeeData.phone || 'N/A',
+            email: employeeData.email || 'N/A',
             confidence_level: `${confidence}%`,
             capturedImage,
-            matchResult,
-            matchScore,
+            matchResult: finalMatchResult,
+            matchScore: finalMatchScore,
             timestamp: new Date().toISOString(),
         };
 
@@ -114,7 +124,9 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const baseUrl = 'https://rivers.thesmartapps.org/api/v1/get-pensionaire-verification-info';
+            const baseUrl = import.meta.env.DEV
+                ? '/api/v1/get-pensionaire-verification-info'
+                : 'https://rivers.thesmartapps.org/api/v1/get-pensionaire-verification-info';
             const url = `${baseUrl}?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', url);
             const response = await axios.get(url);
@@ -122,7 +134,7 @@ export function LivenessCheckPage() {
             if (typeof response.data === 'string' && response.data.toLowerCase().includes('<!doctype html')) {
                 throw new Error('Verification endpoint returned HTML instead of JSON. Check deployment URL configuration.');
             }
-            toast.success(`Verification Submitted! Confidence: ${confidence}%`, { id: toastId });
+            toast.success(`Verification Submitted!`, { id: toastId });
             navigate('/');
         } catch (err) {
             const error = err as Error;
@@ -133,77 +145,140 @@ export function LivenessCheckPage() {
         }
     };
 
-    const handleMatch = async () => {
-        if (!capturedImage || !employeeData || !modelsLoaded) return;
+    const [officialMatchScore] = useState<number | null>(null);
+    const [bvnMatchScore] = useState<number | null>(null);
 
-        setIsMatching(true);
-        setError(null);
+    const performMatch = async (): Promise<{ result: 'match' | 'no-match', score: number } | null> => {
+        if (!capturedImage || !employeeData || !modelsLoaded) return null;
+
+        // Note: We do NOT set isMatching state here to avoid UI flickering if we are submittting immediately.
+        // The calling function should handle loading states.
 
         try {
-            // Add artificial delay for UX
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            console.log('handleMatch start', {
-                hasCapturedImage: !!capturedImage,
-                capturedImageLength: capturedImage.length,
-                capturedImagePreview: capturedImage.substring(0, 64),
-                modelsLoaded,
-                employeeNo: employeeData.employee_no || employeeData.employment_number,
-            });
-
             // 1. Process Captured Image
-            // Create an HTMLImageElement from the base64 string
-            const capturedImg = await faceapi.fetchImage(capturedImage);
-            console.log('Captured image loaded for faceapi', {
-                width: capturedImg.width,
-                height: capturedImg.height,
-            });
-            const capturedDetection = await faceapi.detectSingleFace(capturedImg).withFaceLandmarks().withFaceDescriptor();
-            console.log('Captured detection present', !!capturedDetection);
+            let capturedDetection;
+            try {
+                const capturedImg = await faceapi.fetchImage(capturedImage);
+                capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (!capturedDetection) {
+                    capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                }
+            } catch (err) {
+                console.error('Capture processing error:', err);
+                throw new Error('Could not process captured image. Please retake.');
+            }
 
             if (!capturedDetection) {
-                throw new Error('Could not detect a face in the captured live image. Please retake.');
+                throw new Error('Could not detect a face in the captured live image. Try moving closer to the camera or ensuring better lighting.');
             }
 
             // 2. Process Official Photo
-            // Use the proxy path /images/... to avoid CORS
-            const officialPhotoUrl = `https://rivers.thesmartapps.org/images/${employeeData.employee_no || employeeData.employment_number}.png`;
-            console.log('Official photo URL', officialPhotoUrl);
-
-            // We need to fetch it as a blob first to handle errors gracefully, or use faceapi.fetchImage
-            let officialImg: HTMLImageElement;
+            let officialScore = null;
             try {
-                officialImg = await faceapi.fetchImage(officialPhotoUrl);
-            } catch {
-                // Fallback or specific error if image 404s
-                throw new Error('Official employee photo not found or could not be loaded.');
+                const officialPhotoUrl = `/images/${employeeData.employee_no || employeeData.employment_number}.png`;
+                const officialImg = await faceapi.fetchImage(officialPhotoUrl);
+                let officialDetection = await faceapi.detectSingleFace(officialImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (!officialDetection) {
+                    officialDetection = await faceapi.detectSingleFace(officialImg, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                }
+
+                if (officialDetection) {
+                    officialScore = faceapi.euclideanDistance(capturedDetection.descriptor, officialDetection.descriptor);
+                }
+            } catch (err) {
+                console.warn('Official photo detection failed:', err);
             }
 
-            const officialDetection = await faceapi.detectSingleFace(officialImg).withFaceLandmarks().withFaceDescriptor();
-            console.log('Official detection present', !!officialDetection);
+            // 3. Process BVN Photo
+            let bvnScore = null;
+            try {
+                const bvnEmployeeNo = employeeData.employee_no || employeeData.employment_number;
+                const apiBase =
+                    (import.meta as { env: { [key: string]: string } }).env
+                        .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
 
-            if (!officialDetection) {
-                throw new Error('Could not detect a face in the official employee photo.');
+                const bvnPhotoUrl = import.meta.env.DEV
+                    ? `/bvn-images/bvn-image-${bvnEmployeeNo}.jpg`
+                    : `${apiBase.replace(/\/$/, '')}/pensionaire/photo?employee_no=${encodeURIComponent(bvnEmployeeNo)}&type=bvn`;
+
+                const bvnImg = await faceapi.fetchImage(bvnPhotoUrl);
+                let bvnDetection = await faceapi.detectSingleFace(bvnImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                if (!bvnDetection) {
+                    bvnDetection = await faceapi.detectSingleFace(bvnImg, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                }
+
+                if (bvnDetection) {
+                    bvnScore = faceapi.euclideanDistance(capturedDetection.descriptor, bvnDetection.descriptor);
+                }
+            } catch (err) {
+                console.warn('BVN photo detection failed:', err);
             }
 
-            // 3. Compare Descriptors
-            const distance = faceapi.euclideanDistance(capturedDetection.descriptor, officialDetection.descriptor);
-            console.log('Match Distance:', distance);
-            setMatchScore(distance);
+            const threshold = 0.50;
+            const isOfficialMatch = officialScore !== null && officialScore < threshold;
+            const isBvnMatch = bvnScore !== null && bvnScore < threshold;
 
-            // Threshold: 0.45 for stricter matching (default is usually 0.6)
-            // Lower distance = better match
-            const isMatch = distance < 0.45;
+            // Note: We don't throw if records are missing, we just submit 'no-match'
+            const isMatch = isOfficialMatch || isBvnMatch;
+            const result: 'match' | 'no-match' = isMatch ? 'match' : 'no-match';
+            const bestScore = Math.min(officialScore ?? 1, bvnScore ?? 1);
 
-            setMatchResult(isMatch ? 'match' : 'no-match');
+            return { result, score: bestScore };
 
         } catch (err) {
             const error = err as Error;
-            console.error('Face matching error:', error);
-            setError(error.message || 'Failed to verify match.');
-            setMatchResult('no-match'); // Or maybe keep as null and show error?
-        } finally {
-            setIsMatching(false);
+            // Only throw if it's a critical capture error (e.g. no face detected)
+            if (error.message.includes('captured live image')) {
+                throw error;
+            }
+            // For other errors (matching errors), we return 'no-match'
+            console.error('Face matching error (non-critical):', error);
+            return { result: 'no-match', score: 1 };
+        }
+    };
+
+    const handleProcessAndSubmit = async () => {
+        if (isMatching || isSubmitting) return;
+
+        // Show submitting state immediately to avoid any "Failed" UI flash
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            // 1. Run Match Logic (Pure calculation, no side effects on success/fail UI)
+            const matchData = await performMatch();
+
+            // 2. If Match Success, Submit
+            if (matchData) {
+                // Set state for UI display
+                setMatchResult(matchData.result);
+                setMatchScore(matchData.score);
+                // Submit the data
+                await handleSubmit(matchData.result, matchData.score);
+            } else {
+                // Should not happen if performMatch handles its errors, but just in case
+                throw new Error('Verification processing failed.');
+            }
+        } catch (err) {
+            console.error("Process error:", err);
+            const error = err as Error;
+            setError(error.message);
+            setIsSubmitting(false); // Only turn off if we actually error out and stop
         }
     };
 
@@ -231,13 +306,15 @@ export function LivenessCheckPage() {
                         <VerificationSuccessScreen
                             matchResult={matchResult}
                             matchScore={matchScore}
+                            officialMatchScore={officialMatchScore}
+                            bvnMatchScore={bvnMatchScore}
                             capturedImage={capturedImage}
                             employeeData={employeeData}
                             error={error}
                             isMatching={isMatching}
                             isSubmitting={isSubmitting}
                             modelsLoaded={modelsLoaded}
-                            onMatch={handleMatch}
+                            onMatch={handleProcessAndSubmit}
                             onSubmit={handleSubmit}
                             onRestart={handleStartOver}
                         />

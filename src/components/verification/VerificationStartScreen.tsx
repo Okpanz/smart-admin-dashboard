@@ -7,7 +7,7 @@ interface VerificationStartScreenProps {
 
 export const VerificationStartScreen = ({ employeeData, onStart }: VerificationStartScreenProps) => {
     return (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center overflow-y-auto w-full">
             <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-blue-100 mb-6">
                 <Shield className="h-10 w-10 text-blue-600" />
             </div>
@@ -21,10 +21,18 @@ export const VerificationStartScreen = ({ employeeData, onStart }: VerificationS
                     <p className="text-sm text-gray-600">{employeeData.employee_no || employeeData.employment_number}</p>
                 </div>
             )}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 max-w-sm mx-auto text-left">
+                <h3 className="font-bold text-yellow-800 mb-2 flex items-center gap-2">
+                    <span className="text-xl">💡</span> Tips for Success:
+                </h3>
+                <ul className="text-sm text-yellow-800 space-y-1 list-disc pl-5">
+                    <li>Ensure you are in a <strong>well-lit area</strong>. Avoid backlighting.</li>
+                    <li>Remove glasses, masks, or hats if possible.</li>
+                    <li>Hold your device steady at eye level.</li>
+                </ul>
+            </div>
             <p className="text-gray-600 mb-8 max-w-sm mx-auto">
-                We need to verify your identity. Perform a few simple head movements.
-                <br />
-                Please ensure you are in a well-lit area.
+                We need to verify your identity. Perform a few simple head movements to prove you are real.
             </p>
             <button
                 onClick={onStart}
