@@ -309,8 +309,7 @@ export function LivenessCheckPage() {
             console.error("Process error:", err);
             const error = err as Error;
             setError(error.message);
-            setIsSubmitting(false);
-            setIsVerified(false);
+            setIsSubmitting(false); // Only turn off if we actually error out and stop
         }
     };
 
@@ -335,69 +334,32 @@ export function LivenessCheckPage() {
                             />
                         </div>
                     ) : isSubmissionComplete ? (
-                        matchResult === 'match' ? (
-                            <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
-                                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </div>
-
-                                <h2 className="text-2xl font-bold text-gray-900">Verification Submitted!</h2>
-
-                                <p className="text-gray-600 max-w-md">
-                                    Thank you. Your liveness check has been successfully submitted for review.
-                                </p>
-
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm">
-                                    <p className="text-sm text-blue-800 font-medium">
-                                        You may now close this window or return to the home page.
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={() => navigate('/')}
-                                    className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
-                                >
-                                    Return Home
-                                </button>
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
-                                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </div>
 
-                                <h2 className="text-2xl font-bold text-gray-900">Verification Failed</h2>
+                            <h2 className="text-2xl font-bold text-gray-900">Verification Submitted!</h2>
 
-                                <p className="text-gray-600 max-w-md">
-                                    We could not verify your identity from the captured image and records.
+                            <p className="text-gray-600 max-w-md">
+                                Thank you. Your liveness check has been successfully submitted for review.
+                            </p>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm">
+                                <p className="text-sm text-blue-800 font-medium">
+                                    You may now close this window or return to the home page.
                                 </p>
-
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-sm">
-                                    <p className="text-sm text-red-800 font-medium">
-                                        Your details have not been updated. You can try again or return to login.
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-wrap items-center justify-center gap-3">
-                                    <button
-                                        onClick={handleStartOver}
-                                        className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
-                                    >
-                                        Try Again
-                                    </button>
-                                    <button
-                                        onClick={handleBackToLogin}
-                                        className="px-6 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                                    >
-                                        Back to Login
-                                    </button>
-                                </div>
                             </div>
-                        )
+
+                            <button
+                                onClick={() => navigate('/')}
+                                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
+                            >
+                                Return Home
+                            </button>
+                        </div>
                     ) : isVerified ? (
                         // Processing / Verification Screen
                         // Instead of showing the detailed report, we show a clean "Verifying..." state.

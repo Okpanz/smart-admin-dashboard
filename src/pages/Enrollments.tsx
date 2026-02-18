@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Download, AlertCircle, Eye } from 'lucide-react';
+import { Search, Download, AlertCircle, Eye } from 'lucide-react';
 import api from '../lib/api';
 import { EnrollmentDetailsModal } from '../components/enrollment/EnrollmentDetailsModal';
 import { Pagination } from '../components/common/Pagination';
@@ -37,6 +37,20 @@ export function Enrollments() {
   const [staff, setStaff] = useState<{ _id: string, name: string }[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
 
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Stats State
+  const [stats, setStats] = useState({
+    total: 0,
+    verified: 0,
+    rejected: 0
+  });
+
+  const [isExporting, setIsExporting] = useState(false);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -50,16 +64,17 @@ export function Enrollments() {
   useEffect(() => {
     // Debounce search
     const timer = setTimeout(() => {
-        fetchEnrollments();
+      fetchEnrollments();
+      fetchStats(); // Update stats when filters might change (though stats usually global, let's keep them somewhat dynamic or static?)
+      // actually stats should probably be global or based on current context. Let's make them global for now (all time)
     }, 500);
     return () => clearTimeout(timer);
-  }, [currentPage, searchTerm, selectedStaffId]);
+  }, [currentPage, searchTerm, selectedStaffId, statusFilter, dateFrom, dateTo]);
 
   const fetchStaff = async () => {
     try {
       const response = await api.get('/users');
-      // Handle both old array format and new paginated format if user endpoint is also updated
-      const data = response.data.data?.data || response.data.data || response.data; 
+      const data = response.data.data?.data || response.data.data || response.data;
       if (Array.isArray(data)) {
         setStaff(data);
       }
@@ -68,32 +83,100 @@ export function Enrollments() {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      // Parallel requests to get counts
+      // Note: This depends on API capabilities. If API doesn't support generic stats endpoint, we might have to filter.
+      // Assuming /mobile/v1/enrollments returns pagination meta, we can use limit=1 to get counts.
+
+      const params = (status: string) => ({ limit: 1, status: status !== 'total' ? status : undefined });
+
+      const [totalRes, verifiedRes, rejectedRes] = await Promise.all([
+        api.get('/mobile/v1/enrollments', { params: params('total') }),
+        api.get('/mobile/v1/enrollments', { params: params('verified') }),
+        api.get('/mobile/v1/enrollments', { params: params('rejected') })
+      ]);
+
+      const getCount = (res: any) => res.data.data?.meta?.total || res.data.meta?.total || 0;
+
+      setStats({
+        total: getCount(totalRes),
+        verified: getCount(verifiedRes),
+        rejected: getCount(rejectedRes)
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const params: Record<string, string | number> = {
+        page: 1,
+        limit: 10000 // Fetch large amount
+      };
+
+      if (selectedStaffId) params.staff_id = selectedStaffId;
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (dateFrom) params.startDate = dateFrom;
+      if (dateTo) params.endDate = dateTo;
+
+      const response = await api.get('/mobile/v1/enrollments', { params });
+      const data = response.data.data?.data || response.data.data || [];
+
+      if (Array.isArray(data) && data.length > 0) {
+        const XLSX = await import('xlsx');
+        const exportData = data.map((item: any) => ({
+          'Employee ID': item.employeeId,
+          'Full Name': item.fullname,
+          'Department': item.department,
+          'Status': item.status,
+          'Date Created': new Date(item.createdAt).toLocaleString(),
+          'Images': item.biometrics?.images?.length || 0,
+          'Fingerprints': item.biometrics?.fingerprints?.length || 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Enrollments");
+        XLSX.writeFile(wb, `Enrollments_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      } else {
+        console.warn('No data to export');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const fetchEnrollments = async () => {
     try {
       setIsLoading(true);
       const params: Record<string, string | number> = {
-          page: currentPage,
-          limit: itemsPerPage
+        page: currentPage,
+        limit: itemsPerPage
       };
-      
-      if (selectedStaffId) {
-        params.staff_id = selectedStaffId;
-      }
-      if (searchTerm) {
-          params.search = searchTerm;
-      }
+
+      if (selectedStaffId) params.staff_id = selectedStaffId;
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (dateFrom) params.startDate = dateFrom;
+      if (dateTo) params.endDate = dateTo;
 
       const response = await api.get('/mobile/v1/enrollments', { params });
 
       const responseData = response.data.data || response.data;
-      
+
       // Handle new paginated format
       if (responseData.data && Array.isArray(responseData.data)) {
-          setEnrollments(responseData.data);
-          if (responseData.meta) {
-              setTotalPages(responseData.meta.pages);
-              setTotalItems(responseData.meta.total);
-          }
+        setEnrollments(responseData.data);
+        if (responseData.meta) {
+          setTotalPages(responseData.meta.pages);
+          setTotalItems(responseData.meta.total);
+        }
       } else if (Array.isArray(responseData)) {
         // Fallback for old format
         setEnrollments(responseData);
@@ -109,7 +192,7 @@ export function Enrollments() {
   };
 
   const handlePageChange = (page: number) => {
-      setCurrentPage(page);
+    setCurrentPage(page);
   };
 
   const handleViewEnrollment = (enrollment: Enrollment) => {
@@ -140,16 +223,36 @@ export function Enrollments() {
 
   return (
     <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase">Total Enrollments</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase">Verified</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{stats.verified.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase">Rejected</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">{stats.rejected.toLocaleString()}</p>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Enrollments</h1>
-        <button className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
+        <h1 className="text-2xl font-bold text-gray-900">Enrollments Report</h1>
+        <button
+          onClick={handleExport}
+          disabled={isExporting}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isExporting ? <span className="animate-spin mr-2">⏳</span> : <Download className="w-4 h-4 mr-2" />}
+          Export Excel
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-wrap gap-4">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4">
         <div className="flex-1 min-w-[200px] relative">
           <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
           <input
@@ -158,20 +261,38 @@ export function Enrollments() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             value={searchTerm}
             onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1); // Reset to first page on search
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
             }}
           />
         </div>
-        <div className="w-full sm:w-64">
-          <div className="relative">
-            <Filter className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
-            <select 
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
+
+        <div className="flex flex-wrap gap-4">
+          {/* Status Filter */}
+          <div className="w-40 relative">
+            <select
+              className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="verified">Verified</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Staff Filter */}
+          <div className="w-48 relative">
+            <select
+              className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
               value={selectedStaffId}
               onChange={(e) => {
-                  setSelectedStaffId(e.target.value);
-                  setCurrentPage(1);
+                setSelectedStaffId(e.target.value);
+                setCurrentPage(1);
               }}
             >
               <option value="">All Staff</option>
@@ -180,6 +301,38 @@ export function Enrollments() {
               ))}
             </select>
           </div>
+
+          {/* Date Range */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+            />
+            <span className="text-gray-400">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+            />
+          </div>
+
+          {(dateFrom || dateTo || statusFilter !== 'all' || selectedStaffId) && (
+            <button
+              onClick={() => {
+                setDateFrom('');
+                setDateTo('');
+                setStatusFilter('all');
+                setSelectedStaffId('');
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
@@ -253,7 +406,7 @@ export function Enrollments() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
+                      <button
                         onClick={() => handleViewEnrollment(enrollment)}
                         className="text-indigo-600 hover:text-indigo-900 flex items-center justify-end w-full"
                       >
@@ -267,14 +420,14 @@ export function Enrollments() {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            totalItems={totalItems}
-            itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
         />
       </div>
 
