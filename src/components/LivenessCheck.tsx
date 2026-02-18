@@ -36,6 +36,48 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     const currentStepRef = useRef(0);
     const isProcessingRef = useRef(false);
 
+    // Voice Command Helper
+    const speak = (text: string) => {
+        if (!window.speechSynthesis) return;
+
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0; // Normal speed
+        utterance.pitch = 1.0; // Normal pitch
+        utterance.volume = 1.0; // Max volume
+
+        // Optional: Select a specific voice if desired, or let browser default
+        // const voices = window.speechSynthesis.getVoices();
+        // utterance.voice = voices.find(v => v.lang.includes('en')) || null;
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // Trigger voice on step change
+    useEffect(() => {
+        if (currentStep < steps.length) {
+            // Add a small delay for natural timing
+            const timer = setTimeout(() => {
+                const instruction = steps[currentStep].instruction;
+                speak(instruction);
+            }, 500);
+            return () => clearTimeout(timer);
+        } else {
+            speak("Liveness check complete!");
+        }
+    }, [currentStep]);
+
+    // Initial greeting
+    useEffect(() => {
+        // Speak initial message on mount
+        const timer = setTimeout(() => {
+            speak("Position your face in the frame");
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []);
+
     useEffect(() => {
         currentStepRef.current = currentStep;
     }, [currentStep]);
@@ -281,8 +323,10 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                 }
 
                 // Show success message briefly before moving on
+                // Show success message briefly before moving on
                 setTimeout(() => {
                     setMessage('✓ Face Captured! Get ready...');
+                    speak("Face captured. Get ready for the next step.");
                 }, 500);
 
                 setTimeout(() => {
@@ -295,6 +339,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
             } else {
                 // Normal steps
                 setMessage(`✓ ${step.instruction} - Verified!`);
+                speak("Good!"); // Short confirmation
 
                 setTimeout(() => {
                     const nextStep = currentStep + 1;

@@ -50,10 +50,16 @@ export function LivenessCheckPage() {
         }
     };
 
+    useEffect(() => {
+        if (isVerified && modelsLoaded && !isSubmitting && !matchResult && !isSubmissionComplete) {
+            handleProcessAndSubmit();
+        }
+    }, [isVerified, modelsLoaded]);
+
     const handleComplete = (success: boolean) => {
         if (success) {
             setIsVerified(true);
-            console.log('User verified as live!');
+            console.log('User verified as live! Waiting for models/resources to process...');
         }
     };
 
@@ -150,7 +156,11 @@ export function LivenessCheckPage() {
             console.log('Capture API Response:', captureResponse.data);
 
             toast.success(`Verification Submitted!`, { id: toastId });
-            navigate('/');
+
+            // Simplified Success Logic:
+            // Instead of redirecting immediately, we show a success screen.
+            setIsSubmissionComplete(true);
+            // navigate('/'); 
         } catch (err) {
             const error = err as Error;
             console.error('Submission error:', error);
@@ -160,11 +170,17 @@ export function LivenessCheckPage() {
         }
     };
 
+    // New state for showing the final Success Card
+    const [isSubmissionComplete, setIsSubmissionComplete] = useState(false);
+
     const [officialMatchScore] = useState<number | null>(null);
     const [bvnMatchScore] = useState<number | null>(null);
 
     const performMatch = async (): Promise<{ result: 'match' | 'no-match', score: number } | null> => {
-        if (!capturedImage || !employeeData || !modelsLoaded) return null;
+        if (!capturedImage || !employeeData || !modelsLoaded) {
+            console.error("performMatch missing dependencies:", { capturedImage: !!capturedImage, employeeData: !!employeeData, modelsLoaded });
+            return null;
+        }
 
         // Note: We do NOT set isMatching state here to avoid UI flickering if we are submittting immediately.
         // The calling function should handle loading states.
@@ -317,22 +333,49 @@ export function LivenessCheckPage() {
                                 onCapture={handleCapture}
                             />
                         </div>
+                    ) : isSubmissionComplete ? (
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+
+                            <h2 className="text-2xl font-bold text-gray-900">Verification Submitted!</h2>
+
+                            <p className="text-gray-600 max-w-md">
+                                Thank you. Your liveness check has been successfully submitted for review.
+                            </p>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm">
+                                <p className="text-sm text-blue-800 font-medium">
+                                    You may now close this window or return to the home page.
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => navigate('/')}
+                                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
+                            >
+                                Return Home
+                            </button>
+                        </div>
                     ) : isVerified ? (
-                        <VerificationSuccessScreen
-                            matchResult={matchResult}
-                            matchScore={matchScore}
-                            officialMatchScore={officialMatchScore}
-                            bvnMatchScore={bvnMatchScore}
-                            capturedImage={capturedImage}
-                            employeeData={employeeData}
-                            error={error}
-                            isMatching={isMatching}
-                            isSubmitting={isSubmitting}
-                            modelsLoaded={modelsLoaded}
-                            onMatch={handleProcessAndSubmit}
-                            onSubmit={handleSubmit}
-                            onRestart={handleStartOver}
-                        />
+                        // Processing / Verification Screen
+                        // Instead of showing the detailed report, we show a clean "Verifying..." state.
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
+                            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+
+                            <h2 className="text-xl font-bold text-gray-900">Verifying Identity...</h2>
+
+                            <p className="text-gray-500">
+                                Please wait while we verify your captured data against official records.
+                                <br />
+                                This may take a few moments.
+                            </p>
+
+                            {/* Hidden debug info if needed, or completely removed */}
+                        </div>
                     ) : (
                         <VerificationErrorScreen
                             error={error}
@@ -344,6 +387,6 @@ export function LivenessCheckPage() {
             </div>
 
             <VerificationFooter />
-        </div>
+        </div >
     );
 }
