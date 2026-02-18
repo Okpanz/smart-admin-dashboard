@@ -108,7 +108,7 @@ export function LivenessCheckPage() {
             // MAPPING FIX: The API returns `idemp_info`, so we use that. Fallback to `id`.
             emp_info_id: employeeData.idemp_info || employeeData.id || employeeData.emp_info_id,
             service_id: employeeData.service_id || 'N/A',
-            phone: employeeData.phone || 'N/A',
+            // phone: employeeData.phone || 'N/A',
             phone_number: employeeData.phone || 'N/A',
             email: employeeData.email || 'N/A',
             confidence_level: `${confidence}%`,
