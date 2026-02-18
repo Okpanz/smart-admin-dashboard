@@ -7,17 +7,43 @@ import {
     XCircle,
     Calendar,
     Loader2,
-    Search
+    Search,
+    Printer
 } from 'lucide-react';
 const format = (date: Date) => date.toLocaleString();
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+
+interface VerificationData {
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    gender?: string;
+    dateOfBirth?: string;
+    mobile?: string;
+    nin?: string;
+    enrollmentBranch?: string;
+    enrollmentInstitution?: string;
+}
+
+interface EmployeeRecord {
+    employee_no: string;
+    surname: string;
+    first_name: string;
+    middle_name: string;
+    photo_url: string;
+    designation?: string;
+    department?: string;
+    date_of_birth?: string;
+    verification_data: string; // JSON string
+}
 
 interface Capture {
     _id: string;
     employeeNo: string;
     firstName: string;
     lastName: string;
+    middleName?: string;
     imageMatch: number; // 1 or 0
     confidenceLevel: string;
     capturedAt: string;
@@ -26,6 +52,7 @@ interface Capture {
     accountNumber: string;
     empInfoId: string;
     serviceId: string;
+    employee_record?: EmployeeRecord;
 }
 
 interface ApiResponse {
@@ -53,6 +80,15 @@ export function LivenessReportPage() {
     const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
 
+    // Stats State
+    const [stats, setStats] = useState({
+        totalVerified: 0,
+        verifiedToday: 0,
+        totalMatch: 0,
+        totalNoMatch: 0,
+        isLoading: false
+    });
+
     // Debounce search
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -61,8 +97,41 @@ export function LivenessReportPage() {
         return () => clearTimeout(timeoutId);
     }, [searchTerm, matchFilter, dateFrom, dateTo, page, limit, token]);
 
+    const fetchStats = async () => {
+        setStats(prev => ({ ...prev, isLoading: true }));
+        try {
+            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
+
+            const [totalRes, todayRes, matchRes, noMatchRes] = await Promise.all([
+                // Total Verified
+                axios.get<ApiResponse>(url, { params: { limit: 1 }, headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+                // Verified Today
+                axios.get<ApiResponse>(url, { params: { limit: 1, from_date: new Date().toISOString().split('T')[0] }, headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+                // Total Match
+                axios.get<ApiResponse>(url, { params: { limit: 1, match_status: 'match' }, headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+                // Total No Match
+                axios.get<ApiResponse>(url, { params: { limit: 1, match_status: 'no-match' }, headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+            ]);
+
+            setStats({
+                totalVerified: totalRes.data.pagination?.total || 0,
+                verifiedToday: todayRes.data.pagination?.total || 0,
+                totalMatch: matchRes.data.pagination?.total || 0,
+                totalNoMatch: noMatchRes.data.pagination?.total || 0,
+                isLoading: false
+            });
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+            setStats(prev => ({ ...prev, isLoading: false }));
+        }
+    };
+
     const fetchCaptures = async () => {
         setIsLoading(true);
+        // Refresh stats when fetching data (or maybe just once on mount? For now, on every fetch to keep sync)
+        fetchStats();
+
         try {
             const baseUrl =
                 (import.meta as { env: { [key: string]: string } }).env
@@ -112,6 +181,50 @@ export function LivenessReportPage() {
     };
 
     const [isExporting, setIsExporting] = useState(false);
+
+    // Bulk Print Logic
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [printData, setPrintData] = useState<Capture[]>([]);
+
+    const handleBulkPrint = async () => {
+        setIsPrinting(true);
+        try {
+            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
+
+            // Fetch generic 'bulk' limit (e.g. 1000)
+            const params: any = {
+                page: 1,
+                limit: 1000,
+            };
+
+            if (searchTerm) params.employee_no = searchTerm;
+            if (dateFrom) params.from_date = dateFrom;
+            if (dateTo) params.to_date = dateTo;
+            if (matchFilter !== 'all') params.match_status = matchFilter;
+
+            const response = await axios.get<ApiResponse>(url, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                params
+            });
+
+            if (response.data.success && response.data.data.length > 0) {
+                setPrintData(response.data.data);
+                // Give time for state to update and DOM to render the hidden print area
+                setTimeout(() => {
+                    window.print();
+                    setIsPrinting(false);
+                }, 1000);
+            } else {
+                toast.error('No data to print');
+                setIsPrinting(false);
+            }
+        } catch (error) {
+            console.error('Print error:', error);
+            toast.error('Failed to prepare print data');
+            setIsPrinting(false);
+        }
+    };
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -173,21 +286,58 @@ export function LivenessReportPage() {
         }
     };
 
+    const handleSinglePrint = () => {
+        if (!selectedCapture) return;
+        setPrintData([selectedCapture]);
+        // Allow DOM to update
+        setTimeout(() => {
+            window.print();
+        }, 500);
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Liveness Verification Report</h1>
-                    <p className="text-gray-500">View history of identity verification attempts.</p>
+            {/* Analysis / Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Total Verified</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalVerified.toLocaleString()}</p>
                 </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Verified Today</p>
+                    <p className="text-2xl font-bold text-blue-600 mt-1">{stats.verifiedToday.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Total Match</p>
+                    <p className="text-2xl font-bold text-green-600 mt-1">{stats.totalMatch.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        {stats.totalVerified > 0 ? ((stats.totalMatch / stats.totalVerified) * 100).toFixed(1) : 0}% Rate
+                    </p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Total No Match</p>
+                    <p className="text-2xl font-bold text-red-600 mt-1">{stats.totalNoMatch.toLocaleString()}</p>
+                </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleBulkPrint}
+                        disabled={isPrinting}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-sm"
+                    >
+                        {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <div className="h-4 w-4">🖨️</div>}
+                        Bulk Print
+                    </button>
                     <button
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium shadow-sm"
                     >
                         {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <div className="h-4 w-4 font-bold">X</div>}
-                        Export to Excel
+                        Export Excel
                     </button>
                     <button
                         onClick={fetchCaptures}
@@ -409,12 +559,21 @@ export function LivenessReportPage() {
                                     {selectedCapture.firstName} {selectedCapture.lastName} • {selectedCapture.employeeNo}
                                 </p>
                             </div>
-                            <button
-                                onClick={() => setSelectedCapture(null)}
-                                className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full border border-gray-200 hover:border-gray-300 transition-colors"
-                            >
-                                <XCircle className="h-6 w-6" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleSinglePrint}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium shadow-sm"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Print
+                                </button>
+                                <button
+                                    onClick={() => setSelectedCapture(null)}
+                                    className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full border border-gray-200 hover:border-gray-300 transition-colors"
+                                >
+                                    <XCircle className="h-6 w-6" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="p-6">
@@ -506,13 +665,13 @@ export function LivenessReportPage() {
                             </div>
 
                             {/* Data Details */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
                                 <div>
                                     <p className="text-xs text-gray-500 font-medium uppercase mb-1">Service ID</p>
                                     <p className="font-mono text-sm font-bold text-gray-900">{selectedCapture.serviceId || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500 font-medium uppercase mb-1">Information ID</p>
+                                    <p className="text-xs text-gray-500 font-medium uppercase mb-1">Info ID</p>
                                     <p className="font-mono text-sm font-bold text-gray-900">{selectedCapture.empInfoId || 'N/A'}</p>
                                 </div>
                                 <div>
@@ -524,10 +683,172 @@ export function LivenessReportPage() {
                                     <p className="font-mono text-sm font-bold text-gray-900">{selectedCapture.accountNumber || 'N/A'}</p>
                                 </div>
                             </div>
+
+                            {/* Extended Employee Details from Verification Data */}
+                            {selectedCapture.employee_record && (
+                                <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                                    <h3 className="text-sm font-bold text-gray-800 uppercase mb-4 flex items-center gap-2">
+                                        <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                                        Biometric & Personal Data
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {(() => {
+                                            try {
+                                                const vData: VerificationData = JSON.parse(selectedCapture.employee_record.verification_data || '{}');
+                                                return (
+                                                    <>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">Full Name (Record)</p>
+                                                            <p className="text-sm font-semibold text-gray-900 capitalize">
+                                                                {vData.lastName} {vData.firstName} {vData.middleName}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">Date of Birth</p>
+                                                            <p className="text-sm font-semibold text-gray-900">{vData.dateOfBirth || selectedCapture.employee_record.date_of_birth || 'N/A'}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">Gender</p>
+                                                            <p className="text-sm font-semibold text-gray-900">{vData.gender || 'N/A'}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">Mobile</p>
+                                                            <p className="text-sm font-semibold text-gray-900">{vData.mobile || 'N/A'}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">NIN</p>
+                                                            <p className="text-sm font-semibold text-gray-900">{vData.nin || 'N/A'}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 font-medium uppercase mb-1">Enrollment Branch</p>
+                                                            <p className="text-sm font-semibold text-gray-900 truncate" title={vData.enrollmentBranch}>
+                                                                {vData.enrollmentBranch || 'N/A'}
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                );
+                                            } catch (e) {
+                                                return <p className="text-sm text-gray-500">Data mismatch or unavailable</p>;
+                                            }
+                                        })()}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
+            {/* Print Layout (Only visible when printing) */}
+            <div className="hidden print:block fixed inset-0 bg-white z-[100] overflow-auto">
+                <style>{`
+                    @media print {
+                        @page { size: auto; margin: 5mm; }
+                        body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                        .no-print { display: none !important; }
+                    }
+                `}</style>
+                <div className="p-4 grid grid-cols-1 gap-4">
+                    {printData.map((item, idx) => (
+                        <div key={idx} className="border border-gray-300 rounded-lg p-4 break-inside-avoid">
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-4 border-b pb-2">
+                                <div>
+                                    <h2 className="text-lg font-bold">{item.firstName} {item.lastName}</h2>
+                                    <p className="text-sm text-gray-600 font-mono">{item.employeeNo}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`px-2 py-1 rounded text-xs font-bold ${item.imageMatch === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {item.imageMatch === 1 ? 'VERIFIED' : 'FAILED'}
+                                    </span>
+                                    <p className="text-xs text-gray-500 mt-1">{format(new Date(item.capturedAt))}</p>
+                                </div>
+                            </div>
+
+                            {/* Images */}
+                            <div className="flex gap-4 mb-4 justify-center">
+                                {/* Official */}
+                                <div className="text-center">
+                                    <img
+                                        src={import.meta.env.DEV ? `/images/${item.employeeNo}.png` : `https://rivers.thesmartapps.org/images/${item.employeeNo}.png`}
+                                        className="w-24 h-24 object-cover rounded border bg-gray-100"
+                                        onError={(e) => (e.target as HTMLImageElement).style.visibility = 'hidden'}
+                                    />
+                                    <p className="text-[10px] uppercase font-bold mt-1 text-gray-500">Official</p>
+                                </div>
+                                {/* Filter/Process Arrow */}
+                                <div className="self-center text-gray-300">➜</div>
+                                {/* Capture */}
+                                <div className="text-center">
+                                    <img
+                                        src={getImageUrl(item.imagePath)}
+                                        className="w-24 h-24 object-cover rounded border-2 border-primary-500"
+                                    />
+                                    <p className="text-[10px] uppercase font-bold mt-1 text-primary-600">Capture</p>
+                                </div>
+                                {/* Filter/Process Arrow */}
+                                <div className="self-center text-gray-300">➜</div>
+                                {/* BVN */}
+                                <div className="text-center">
+                                    <img
+                                        src={import.meta.env.DEV ? `/bvn-images/bvn-image-${item.employeeNo}.jpg` : `https://rivers.thesmartapps.org/bvn-images/bvn-image-${item.employeeNo}.jpg`}
+                                        className="w-24 h-24 object-cover rounded border bg-gray-100"
+                                        onError={(e) => (e.target as HTMLImageElement).style.visibility = 'hidden'}
+                                    />
+                                    <p className="text-[10px] uppercase font-bold mt-1 text-gray-500">BVN</p>
+                                </div>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-4 gap-2 text-xs bg-gray-50 p-2 rounded">
+                                <div>
+                                    <span className="text-gray-500 block">Status</span>
+                                    <span className="font-bold">{item.imageMatch === 1 ? 'Match' : 'Mismatch'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500 block">Confidence</span>
+                                    <span className="font-bold">{item.confidenceLevel}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500 block">Service ID</span>
+                                    <span className="font-mono">{item.serviceId}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-500 block">Info ID</span>
+                                    <span className="font-mono">{item.empInfoId}</span>
+                                </div>
+                                {/* Extra parsed details */}
+                                {(() => {
+                                    try {
+                                        const v = JSON.parse(item.employee_record?.verification_data || '{}');
+                                        return (
+                                            <>
+                                                <div><span className="text-gray-500 block">DoB</span>{v.dateOfBirth || item.employee_record?.date_of_birth || '-'}</div>
+                                                <div><span className="text-gray-500 block">Gender</span>{v.gender || '-'}</div>
+                                                <div><span className="text-gray-500 block">Mobile</span>{v.mobile || '-'}</div>
+                                                <div><span className="text-gray-500 block">NIN</span>{v.nin || '-'}</div>
+                                            </>
+                                        )
+                                    } catch (e) { return null }
+                                })()}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Footer */}
+                    <div className="mt-8 text-center text-xs text-gray-400 break-before-avoid">
+                        <p>Generated on {new Date().toLocaleString()} • Liveness Verification Report</p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
+
+    // This is part of the render, so we should keep it inside the component but at the end.
+    // However, since we are using replace_file_content, we replace the closing div and add the print section.
 }
+
+{/* Print Layout (Only visible when printing) */ }
+{/* MOVED INSIDE COMPONENT via replacement range */ }
+// We need to match the structure. The previous view showed the end of the file.
+// I will target the last closing </div> and } and insert it before.
+

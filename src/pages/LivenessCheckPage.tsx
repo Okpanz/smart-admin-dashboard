@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LivenessCheck } from '../components/LivenessCheck';
@@ -171,6 +172,9 @@ export function LivenessCheckPage() {
 
     // New state for showing the final Success Card
     const [isSubmissionComplete, setIsSubmissionComplete] = useState(false);
+
+    // const [officialMatchScore] = useState<number | null>(null);
+    // const [bvnMatchScore] = useState<number | null>(null);
 
     const performMatch = async (): Promise<{ result: 'match' | 'no-match', score: number } | null> => {
         if (!capturedImage || !employeeData || !modelsLoaded) {

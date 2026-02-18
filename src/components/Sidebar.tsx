@@ -5,7 +5,6 @@ import {
   UserCog,
   FileText,
   Shield,
-  Gem,
   DoorOpen,
   X,
   Activity
@@ -113,24 +112,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span>Logout</span>
             <DoorOpen className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
           </button>
-          <div className="rounded-2xl bg-primary-900 p-4 text-white relative overflow-hidden">
-            {/* Abstract Pattern */}
-            <div className="absolute top-0 right-0 -mr-4 -mt-4 h-20 w-20 rounded-full bg-white/10 blur-xl"></div>
-            <div className="absolute bottom-0 left-0 -ml-4 -mb-4 h-20 w-20 rounded-full bg-white/10 blur-xl"></div>
 
-            <div className="relative z-10">
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center mb-3">
-                <Gem className="h-5 w-5 text-white" />
-              </div>
-              <h3 className="font-semibold text-sm mb-1">System Status</h3>
-              <p className="text-xs text-gray-300 mb-3 leading-relaxed">
-                All services are operational. Version 2.0.1
-              </p>
-              <button className="w-full rounded-lg bg-primary-500 py-2 text-xs font-semibold text-white hover:bg-primary-600 transition-colors">
-                View Report
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </>
