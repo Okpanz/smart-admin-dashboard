@@ -127,13 +127,28 @@ export function LivenessCheckPage() {
             const baseUrl =
                 (import.meta as { env: { [key: string]: string } }).env
                     .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
-            const url = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
-            console.log('Verification API URL:', url);
-            const response = await axios.get(url);
-            console.log('Verification API Response:', response.data);
-            if (typeof response.data === 'string' && response.data.toLowerCase().includes('<!doctype html')) {
+
+            const verifyUrl = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
+            console.log('Verification API URL:', verifyUrl);
+
+            const verifyResponse = await axios.get(verifyUrl);
+            console.log('Verification API Response:', verifyResponse.data);
+
+            if (typeof verifyResponse.data === 'string' && verifyResponse.data.toLowerCase().includes('<!doctype html')) {
                 throw new Error('Verification endpoint returned HTML instead of JSON. Check deployment URL configuration.');
             }
+
+            const captureUrl = `${baseUrl.replace(/\/$/, '')}/i-am-alive/capture`;
+            console.log('Capture API URL:', captureUrl);
+
+            const capturePayload = {
+                ...submissionData,
+                clientType: 'web',
+            };
+
+            const captureResponse = await axios.post(captureUrl, capturePayload);
+            console.log('Capture API Response:', captureResponse.data);
+
             toast.success(`Verification Submitted!`, { id: toastId });
             navigate('/');
         } catch (err) {

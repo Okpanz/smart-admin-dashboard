@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Shield, CheckCircle, AlertTriangle, User } from 'lucide-react';
 
 interface VerificationSuccessScreenProps {
