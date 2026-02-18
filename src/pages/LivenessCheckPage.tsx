@@ -124,10 +124,10 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const baseUrl = import.meta.env.DEV
-                ? '/api/v1/get-pensionaire-verification-info'
-                : 'https://rivers.thesmartapps.org/api/v1/get-pensionaire-verification-info';
-            const url = `${baseUrl}?employee_no=${encodeURIComponent(employeeNo)}`;
+            const baseUrl =
+                (import.meta as { env: { [key: string]: string } }).env
+                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const url = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', url);
             const response = await axios.get(url);
             console.log('Verification API Response:', response.data);
