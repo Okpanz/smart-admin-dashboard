@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 import { VerificationHeader, VerificationFooter } from '../components/verification/VerificationLayout';
 import { VerificationStartScreen } from '../components/verification/VerificationStartScreen';
 import { VerificationErrorScreen } from '../components/verification/VerificationErrorScreen';
-import { VerificationSuccessScreen } from '../components/verification/VerificationSuccessScreen';
 
 export function LivenessCheckPage() {
     const navigate = useNavigate();
@@ -172,9 +171,6 @@ export function LivenessCheckPage() {
 
     // New state for showing the final Success Card
     const [isSubmissionComplete, setIsSubmissionComplete] = useState(false);
-
-    const [officialMatchScore] = useState<number | null>(null);
-    const [bvnMatchScore] = useState<number | null>(null);
 
     const performMatch = async (): Promise<{ result: 'match' | 'no-match', score: number } | null> => {
         if (!capturedImage || !employeeData || !modelsLoaded) {
