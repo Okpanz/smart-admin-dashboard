@@ -100,7 +100,7 @@ export function LivenessReportPage() {
     const fetchStats = async () => {
         setStats(prev => ({ ...prev, isLoading: true }));
         try {
-            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             const [totalRes, todayRes, matchRes, noMatchRes] = await Promise.all([
@@ -134,8 +134,7 @@ export function LivenessReportPage() {
 
         try {
             const baseUrl =
-                (import.meta as { env: { [key: string]: string } }).env
-                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             const params: any = {
@@ -176,7 +175,7 @@ export function LivenessReportPage() {
     const getImageUrl = (path: string) => {
         if (path.startsWith('http')) return path;
         // Assuming the server serves uploads statically or we need a base URL
-        const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+        const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
         return `${baseUrl.replace(/\/$/, '')}/${path}`;
     };
 
@@ -189,7 +188,7 @@ export function LivenessReportPage() {
     const handleBulkPrint = async () => {
         setIsPrinting(true);
         try {
-            const baseUrl = (import.meta as { env: { [key: string]: string } }).env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             // Fetch generic 'bulk' limit (e.g. 1000)
@@ -230,8 +229,7 @@ export function LivenessReportPage() {
         setIsExporting(true);
         try {
             const baseUrl =
-                (import.meta as { env: { [key: string]: string } }).env
-                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             // Fetch ALL data matching current filters

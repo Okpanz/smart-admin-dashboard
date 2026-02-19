@@ -104,23 +104,20 @@ export function LivenessCheckPage() {
 
         const submissionData = {
             employee_no: employeeData.employee_no || employeeData.employment_number,
-            bvn: employeeData.bvn || 'N/A',
-            account_number: employeeData.account_number || 'N/A',
-            image_match: finalMatchResult === 'match',
-            firstName: employeeData.first_name,
-            lastName: employeeData.surname,
-            middleName: employeeData.middle_name || '',
+            first_name: employeeData.first_name,
+            last_name: employeeData.surname, // Using surname as last_name
+            middle_name: employeeData.middle_name || '',
             date_of_birth: employeeData.date_of_birth || 'N/A',
-            // MAPPING FIX: The API returns `idemp_info`, so we use that. Fallback to `id`.
             emp_info_id: employeeData.idemp_info || employeeData.id || employeeData.emp_info_id,
             service_id: employeeData.service_id || 'N/A',
-            // phone: employeeData.phone || 'N/A',
+            capturedImage,
+            bvn: employeeData.bvn || 'N/A',
+            account_number: employeeData.account_number || 'N/A',
             phone_number: employeeData.phone || 'N/A',
             email: employeeData.email || 'N/A',
             confidence_level: `${confidence}%`,
-            capturedImage,
-            matchResult: finalMatchResult,
-            matchScore: finalMatchScore,
+            match_score: parseFloat(confidence), // Using the confidence percentage as the match_score
+            image_match: finalMatchResult === 'match',
             timestamp: new Date().toISOString(),
         };
 
@@ -131,8 +128,7 @@ export function LivenessCheckPage() {
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
             const baseUrl =
-                (import.meta as { env: { [key: string]: string } }).env
-                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
 
             const verifyUrl = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', verifyUrl);
@@ -155,16 +151,29 @@ export function LivenessCheckPage() {
             const captureResponse = await axios.post(captureUrl, capturePayload);
             console.log('Capture API Response:', captureResponse.data);
 
-            toast.success(`Verification Submitted!`, { id: toastId });
-
-            // Simplified Success Logic:
-            // Instead of redirecting immediately, we show a success screen.
-            setIsSubmissionComplete(true);
-            // navigate('/'); 
+            if (captureResponse.data && captureResponse.data.success) {
+                toast.success(`Verification Submitted!`, { id: toastId });
+                // Only show success screen if the API explicitly returns success
+                setIsSubmissionComplete(true);
+            } else {
+                const errorMsg = captureResponse.data?.message || 'Backend failed to process capture.';
+                toast.error(`Submission Failed: ${errorMsg}`, { id: toastId });
+                setError(errorMsg);
+                setIsSubmitting(false); // Enable retry button by turning off submitting state
+            }
         } catch (err) {
-            const error = err as Error;
-            console.error('Submission error:', error);
-            alert(`Submission Failed: ${error.message || 'Unknown error'}`);
+            console.error('Submission error:', err);
+            let errorMessage = 'An unexpected error occurred during submission.';
+
+            if (axios.isAxiosError(err) && err.response) {
+                // Professional error extraction from backend response
+                errorMessage = err.response.data?.message || err.response.data?.error || `Server returned ${err.response.status}`;
+            } else if (err instanceof Error) {
+                errorMessage = err.message;
+            }
+
+            setError(errorMessage);
+            toast.error(`Submission Failed: ${errorMessage}`, { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -187,15 +196,19 @@ export function LivenessCheckPage() {
 
         try {
             // 1. Process Captured Image
+            console.log('Detecting face in live capture...');
             let capturedDetection;
             try {
                 const capturedImg = await faceapi.fetchImage(capturedImage);
-                capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                // Lowered minConfidence from 0.5 to 0.4 for robustness in dark environments
+                capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
                     .withFaceLandmarks()
                     .withFaceDescriptor();
 
                 if (!capturedDetection) {
-                    capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 }))
+                    console.log('SSD detector failed, trying TinyFaceDetector...');
+                    // Lowered scoreThreshold from 0.5 to 0.35
+                    capturedDetection = await faceapi.detectSingleFace(capturedImg, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.35 }))
                         .withFaceLandmarks()
                         .withFaceDescriptor();
                 }
@@ -205,8 +218,10 @@ export function LivenessCheckPage() {
             }
 
             if (!capturedDetection) {
-                throw new Error('Could not detect a face in the captured live image. Try moving closer to the camera or ensuring better lighting.');
+                console.error('Face detection failed even with secondary detector.');
+                throw new Error('Could not detect a face in the captured live image. Try moving to a brighter place and ensuring your face is clearly visible.');
             }
+            console.log('Face detected in live capture successfully.');
 
             // 2. Process Official Photo
             let officialScore = null;
@@ -235,8 +250,7 @@ export function LivenessCheckPage() {
             try {
                 const bvnEmployeeNo = employeeData.employee_no || employeeData.employment_number;
                 const apiBase =
-                    (import.meta as { env: { [key: string]: string } }).env
-                        .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+                    import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
 
                 const bvnPhotoUrl = import.meta.env.DEV
                     ? `/bvn-images/bvn-image-${bvnEmployeeNo}.jpg`
@@ -325,7 +339,13 @@ export function LivenessCheckPage() {
                             employeeData={employeeData}
                             onStart={() => setIsStarted(true)}
                         />
-                    ) : !isVerified && !error ? (
+                    ) : error ? (
+                        <VerificationErrorScreen
+                            error={error}
+                            onRetry={handleStartOver}
+                            onBackToLogin={handleBackToLogin}
+                        />
+                    ) : !isVerified ? (
                         <div className="flex-1 overflow-y-auto w-full">
                             <LivenessCheck
                                 onComplete={handleComplete}
@@ -360,9 +380,8 @@ export function LivenessCheckPage() {
                                 Return Home
                             </button>
                         </div>
-                    ) : isVerified ? (
-                        // Processing / Verification Screen
-                        // Instead of showing the detailed report, we show a clean "Verifying..." state.
+                    ) : (
+                        // Processing / Verification Screen (isVerified === true, but not complete and no error)
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
                             <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
 
@@ -376,12 +395,6 @@ export function LivenessCheckPage() {
 
                             {/* Hidden debug info if needed, or completely removed */}
                         </div>
-                    ) : (
-                        <VerificationErrorScreen
-                            error={error}
-                            onRetry={handleStartOver}
-                            onBackToLogin={handleBackToLogin}
-                        />
                     )}
                 </div>
             </div>

@@ -16,9 +16,16 @@ export const VerificationErrorScreen = ({ error, onRetry, onBackToLogin }: Verif
             <p className="text-gray-600 mb-2 max-w-xs mx-auto">
                 {error}
             </p>
-            <p className="text-gray-500 text-sm mb-8">
-                Please check camera permissions.
-            </p>
+            {error && (
+                error.toLowerCase().includes('camera') ||
+                error.toLowerCase().includes('permission') ||
+                error.toLowerCase().includes('media') ||
+                error.toLowerCase().includes('device')
+            ) && (
+                    <p className="text-gray-500 text-sm mb-8">
+                        Please check camera permissions.
+                    </p>
+                )}
             <div className="flex flex-col w-full max-w-xs gap-3">
                 <button
                     onClick={onRetry}

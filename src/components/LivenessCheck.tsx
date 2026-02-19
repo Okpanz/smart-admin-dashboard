@@ -20,6 +20,9 @@ interface Step {
 interface FaceRatios {
     yawRatio: number;   // nose-left / nose-right
     pitchRatio: number; // nose-eyes / nose-mouth
+    isPositioned: boolean;
+    guidance?: string;
+    isTooDark?: boolean;
 }
 
 export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckProps) {
@@ -35,6 +38,11 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     // Refs for state accessible inside MediaPipe callbacks
     const currentStepRef = useRef(0);
     const isProcessingRef = useRef(false);
+    const lastGuidanceSpeakRef = useRef<number>(0);
+    const lastGuidanceMsgRef = useRef<string>('');
+
+    // Shared Constant for Zoom
+    const ZOOM_FACTOR = 1.3;
 
     // Voice Command Helper
     const speak = (text: string) => {
@@ -44,13 +52,9 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0; // Normal speed
-        utterance.pitch = 1.0; // Normal pitch
-        utterance.volume = 1.0; // Max volume
-
-        // Optional: Select a specific voice if desired, or let browser default
-        // const voices = window.speechSynthesis.getVoices();
-        // utterance.voice = voices.find(v => v.lang.includes('en')) || null;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
         window.speechSynthesis.speak(utterance);
     };
@@ -58,7 +62,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     // Trigger voice on step change
     useEffect(() => {
         if (currentStep < steps.length) {
-            // Add a small delay for natural timing
             const timer = setTimeout(() => {
                 const instruction = steps[currentStep].instruction;
                 speak(instruction);
@@ -71,7 +74,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
 
     // Initial greeting
     useEffect(() => {
-        // Speak initial message on mount
         const timer = setTimeout(() => {
             speak("Position your face in the frame");
         }, 1000);
@@ -96,35 +98,33 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         {
             direction: 'left',
             instruction: 'Turn your head LEFT',
-            check: (r) => r.yawRatio > 1.6 // Swapped: logic for Left
+            check: (r) => r.yawRatio > 1.6
         },
         {
             direction: 'right',
             instruction: 'Turn your head RIGHT',
-            check: (r) => r.yawRatio < 0.6 // Swapped: logic for Right
+            check: (r) => r.yawRatio < 0.6
         },
         {
             direction: 'up',
             instruction: 'Look UP',
-            check: (r) => r.pitchRatio < 0.6 // Nose closer to eyes
+            check: (r) => r.pitchRatio < 0.6
         },
         {
             direction: 'down',
             instruction: 'Look DOWN',
-            check: (r) => r.pitchRatio > 1.4 // Nose closer to mouth
+            check: (r) => r.pitchRatio > 1.4
         }
     ];
 
     const initializeFaceDetection = async () => {
         try {
-            // Explicitly request camera permission first to handle errors better
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 640, height: 480, facingMode: facingMode }
             });
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Wait for video to load metadata to ensure dimensions are ready
                 await new Promise((resolve) => {
                     if (videoRef.current) {
                         videoRef.current.onloadedmetadata = resolve;
@@ -150,7 +150,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
             faceMeshRef.current = faceMesh;
 
             if (videoRef.current) {
-                // Use Camera utility from MediaPipe to manage sending frames
                 const camera = new MPCamera(videoRef.current, {
                     onFrame: async () => {
                         if (faceMeshRef.current && videoRef.current) {
@@ -172,7 +171,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     };
 
     const onResults = (results: any) => {
-        // Always draw the video first (CLEAN STATE)
         drawSyncedVideo();
 
         if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
@@ -183,34 +181,158 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         }
 
         const landmarks = results.multiFaceLandmarks[0];
-        const ratios = calculateFaceRatios(landmarks);
+        const brightness = calculateAverageBrightness();
+        const ratios = calculateFaceRatios(landmarks, brightness);
+
+        // Draw Guide Frame
+        drawGuideFrame(ratios.isPositioned);
+
+        // Draw Directional Arrow if needed
+        const currentStepIndex = currentStepRef.current;
+        if (currentStepIndex > 0 && currentStepIndex < steps.length) {
+            drawDirectionalArrow(steps[currentStepIndex].direction);
+        }
 
         // Check logic - if this passes, it might trigger a capture
-        // Since we just drew the clean video, capturing now is safe (no landmarks yet)
         checkCurrentStep(ratios);
-
-        // Draw landmarks ON TOP of the video (and potentially captured frame)
         drawLandmarksOverlay(landmarks);
+    };
+
+    const calculateAverageBrightness = (): number => {
+        const canvas = canvasRef.current;
+        if (!canvas) return 255; // Default to bright if no canvas
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return 255;
+
+        // We only sample a subset of pixels for performance
+        // Sample the center area where the face guide is
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height * 0.45;
+        const width = canvas.width * 0.4;
+        const height = canvas.height * 0.6;
+
+        try {
+            const imageData = ctx.getImageData(centerX - width / 2, centerY - height / 2, width, height);
+            const data = imageData.data;
+            let totalBrightness = 0;
+
+            // RGBA format, so step by 4
+            for (let i = 0; i < data.length; i += 40) { // Sample every 10th pixel for speed
+                // Using relative luminance formula
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+                totalBrightness += brightness;
+            }
+
+            return totalBrightness / (data.length / 40);
+        } catch (e) {
+            console.warn('Brightness check failed:', e);
+            return 255;
+        }
+    };
+
+    const drawGuideFrame = (isPositioned: boolean) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height * 0.45;
+        const radiusX = canvas.width * 0.22;
+        const radiusY = canvas.height * 0.35;
+
+        // Dim outside
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        ctx.moveTo(centerX + radiusX, centerY);
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+        ctx.fill('evenodd');
+        ctx.restore();
+
+        // Border
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = isPositioned ? '#00FF00' : '#FFFFFF';
+        if (!isPositioned) ctx.setLineDash([15, 10]);
+        ctx.stroke();
+        ctx.restore();
+    };
+
+    const drawDirectionalArrow = (direction: string) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height * 0.45;
+        const radiusX = canvas.width * 0.22;
+        const radiusY = canvas.height * 0.35;
+
+        ctx.save();
+        ctx.strokeStyle = '#3B82F6'; // Blue-500
+        ctx.fillStyle = '#3B82F6';
+        ctx.lineWidth = 6;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        let arrowX = centerX;
+        let arrowY = centerY;
+        const offset = 40;
+
+        ctx.beginPath();
+        if (direction === 'left') {
+            arrowX -= radiusX + offset;
+            drawArrow(ctx, arrowX + 30, arrowY, arrowX, arrowY);
+        } else if (direction === 'right') {
+            arrowX += radiusX + offset;
+            drawArrow(ctx, arrowX - 30, arrowY, arrowX, arrowY);
+        } else if (direction === 'up') {
+            arrowY -= radiusY + offset;
+            drawArrow(ctx, arrowX, arrowY + 30, arrowX, arrowY);
+        } else if (direction === 'down') {
+            arrowY += radiusY + offset;
+            drawArrow(ctx, arrowX, arrowY - 30, arrowX, arrowY);
+        }
+        ctx.restore();
+    };
+
+    const drawArrow = (ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number) => {
+        const headLength = 20;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+
+        // Draw main line
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        // Draw arrow head
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
     };
 
     const drawSyncedVideo = () => {
         const canvas = canvasRef.current;
         const video = videoRef.current;
         if (!canvas || !video) return;
-
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Match dimensions
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
-        const ZOOM_FACTOR = 1.8;
-
-        ctx.save();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Digital Zoom Math
         const vw = video.videoWidth;
         const vh = video.videoHeight;
         const cropW = vw / ZOOM_FACTOR;
@@ -218,12 +340,12 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const cropX = (vw - cropW) / 2;
         const cropY = (vh - cropH) / 2;
 
-        // Flip horizontally for mirror effect ONLY if using front camera
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (facingMode === 'user') {
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
         }
-
         ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
         ctx.restore();
     };
@@ -234,11 +356,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const ZOOM_FACTOR = 1.8;
-
         ctx.save();
-        ctx.save();
-        // Flip horizontally to match the mirrored video ONLY if using front camera
         if (facingMode === 'user') {
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
@@ -249,12 +367,11 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
 
     const drawFaceMesh = (ctx: CanvasRenderingContext2D, landmarks: any[], width: number, height: number, zoom: number) => {
         ctx.fillStyle = '#00FF00';
+        const cropSize = 1 / zoom;
+        const startOffset = (1 - cropSize) / 2;
+
         for (const index of [1, 33, 263, 61, 291, 152]) {
             const point = landmarks[index];
-
-            const cropSize = 1 / zoom;
-            const startOffset = (1 - cropSize) / 2;
-
             const x = (point.x - startOffset) / cropSize;
             const y = (point.y - startOffset) / cropSize;
 
@@ -266,64 +383,98 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         }
     };
 
-    const calculateFaceRatios = (landmarks: any[]): FaceRatios => {
+    const calculateFaceRatios = (landmarks: any[], brightness: number): FaceRatios => {
         const nose = landmarks[1];
-        const leftEye = landmarks[33];   // Outer corner left eye
-        const rightEye = landmarks[263]; // Outer corner right eye
+        const leftEye = landmarks[33];
+        const rightEye = landmarks[263];
         const mouthLeft = landmarks[61];
         const mouthRight = landmarks[291];
+        const forehead = landmarks[10];
+        const chin = landmarks[152];
 
-        // 1. Calculate Distances for Yaw (Horizontal)
         const dNoseLeftEye = Math.hypot(nose.x - leftEye.x, nose.y - leftEye.y);
         const dNoseRightEye = Math.hypot(nose.x - rightEye.x, nose.y - rightEye.y);
-
         const yawRatio = dNoseLeftEye / dNoseRightEye;
 
-        // 2. Calculate Distances for Pitch (Vertical)
         const eyesMidY = (leftEye.y + rightEye.y) / 2;
         const mouthsMidY = (mouthLeft.y + mouthRight.y) / 2;
-
         const dNoseEyes = Math.abs(nose.y - eyesMidY);
         const dNoseMouth = Math.abs(nose.y - mouthsMidY);
-
         const pitchRatio = dNoseEyes / dNoseMouth;
 
-        return { yawRatio, pitchRatio };
+        // Position Validation
+        const cropSize = 1 / ZOOM_FACTOR;
+        const startOffset = (1 - cropSize) / 2;
+
+        const mappedFaceMidX = (((landmarks[33].x + landmarks[263].x) / 2) - startOffset) / cropSize;
+        const mappedFaceMidY = (((forehead.y + chin.y) / 2) - startOffset) / cropSize;
+        const mappedForeheadY = (forehead.y - startOffset) / cropSize;
+        const mappedChinY = (chin.y - startOffset) / cropSize;
+
+        const centerX = 0.5;
+        const centerY = 0.45;
+        const radX = 0.22;
+        const radY = 0.35;
+
+        const distFromCenter = Math.hypot(mappedFaceMidX - centerX, mappedFaceMidY - centerY);
+        const isCentered = distFromCenter < radX * 0.8;
+        const faceHeight = Math.abs(mappedForeheadY - mappedChinY);
+        const isRightSize = faceHeight > radY * 1.0 && faceHeight < radY * 2.2;
+
+        const isTooDark = brightness < 70; // Threshold for "too dark" (Stricter: increased from 40)
+
+        let guidance = '';
+        if (isTooDark) {
+            guidance = 'Environment is too dark. Move to a brighter place.';
+        } else if (distFromCenter > radX * 1.1) {
+            guidance = 'Center your face in the frame';
+        } else if (faceHeight < radY * 1.0) {
+            guidance = 'Move closer to the camera';
+        } else if (faceHeight > radY * 2.2) {
+            guidance = 'Move a bit further away';
+        }
+
+        const isPositioned = isCentered && isRightSize && !isTooDark;
+
+        return { yawRatio, pitchRatio, isPositioned, guidance, isTooDark };
     };
 
     const checkCurrentStep = (ratios: FaceRatios) => {
         const currentStep = currentStepRef.current;
         const isProcessing = isProcessingRef.current;
-
         if (isProcessing || currentStep >= steps.length) return;
 
         const step = steps[currentStep];
-
-        // Debug Log
-        // console.log(`Step ${currentStep} (${step.direction}) | YawR: ${ratios.yawRatio.toFixed(2)} | PitchR: ${ratios.pitchRatio.toFixed(2)}`);
-
         const isCorrect = step.check(ratios);
 
+        if (!ratios.isPositioned && ratios.guidance) {
+            const now = Date.now();
+            if (now - lastGuidanceSpeakRef.current > 3000 || (ratios.guidance !== lastGuidanceMsgRef.current && now - lastGuidanceSpeakRef.current > 1500)) {
+                speak(ratios.guidance);
+                lastGuidanceSpeakRef.current = now;
+                lastGuidanceMsgRef.current = ratios.guidance;
+            }
+        }
+
         if (isCorrect) {
+            if (!ratios.isPositioned) {
+                setMessage(ratios.guidance || 'Position your face in the frame');
+                return;
+            }
+
             isProcessingRef.current = true;
             setIsProcessing(true);
 
-            // Special handling for Center Step (Index 0)
             if (currentStep === 0) {
                 setMessage('Capturing face...');
-
-                // Capture immediately since we are in a clean state (pre-landmarks)
                 if (onCapture) {
                     const canvas = canvasRef.current;
                     if (canvas) {
                         const imageSrc = canvas.toDataURL('image/jpeg', 0.8);
                         onCapture(imageSrc);
-                        console.log('📸 Face captured at center position');
                     }
                 }
 
-                // Show success message briefly before moving on
-                // Show success message briefly before moving on
                 setTimeout(() => {
                     setMessage('✓ Face Captured! Get ready...');
                     speak("Face captured. Get ready for the next step.");
@@ -334,12 +485,11 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                     setCurrentStep(nextStep);
                     setMessage(steps[nextStep].instruction);
                     setIsProcessing(false);
-                }, 2000); // 2 second pause for user to realize capture happened
+                }, 2000);
 
             } else {
-                // Normal steps
                 setMessage(`✓ ${step.instruction} - Verified!`);
-                speak("Good!"); // Short confirmation
+                speak("Good!");
 
                 setTimeout(() => {
                     const nextStep = currentStep + 1;
@@ -363,19 +513,11 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
 
     const cleanup = () => {
         if (cameraRef.current) {
-            try {
-                cameraRef.current.stop();
-            } catch (e) {
-                console.warn('Error stopping camera:', e);
-            }
+            try { cameraRef.current.stop(); } catch (e) { console.warn(e); }
             cameraRef.current = null;
         }
         if (faceMeshRef.current) {
-            try {
-                faceMeshRef.current.close();
-            } catch (e) {
-                console.warn('Error closing FaceMesh:', e);
-            }
+            try { faceMeshRef.current.close(); } catch (e) { console.warn(e); }
             faceMeshRef.current = null;
         }
     };
@@ -389,7 +531,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     };
 
     useEffect(() => {
-        console.log('Using Ratio-Based Detection Logic with 1.8x Zoom');
         void initializeFaceDetection();
         return () => cleanup();
     }, [facingMode]);
@@ -404,7 +545,6 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                 <video ref={videoRef} className="hidden" playsInline />
                 <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
 
-                {/* Camera Toggle Button */}
                 <button
                     onClick={toggleCamera}
                     className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all shadow-lg z-10"

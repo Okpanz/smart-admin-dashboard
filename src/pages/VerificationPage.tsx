@@ -35,6 +35,8 @@ export function VerificationPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<VerificationData | null>(null);
+    const [officialImageLoaded, setOfficialImageLoaded] = useState(false);
+    const [bvnImageLoaded, setBvnImageLoaded] = useState(false);
 
     const handleVerify = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,6 +47,8 @@ export function VerificationPage() {
         setError(null);
         setData(null);
         setManualBvn(''); // Reset manual BVN on new search
+        setOfficialImageLoaded(false);
+        setBvnImageLoaded(false);
 
         // Smart detection of input type
         let params: Record<string, string> = {};
@@ -60,11 +64,8 @@ export function VerificationPage() {
             // Get the first key and value from params
             const [key, value] = Object.entries(params)[0];
 
-            // In development, use relative path to leverage Vite proxy and avoid CORS
-            const baseUrl = import.meta.env.DEV
-                ? ''
-                : ((import.meta as { env: { [key: string]: string } }).env
-                    .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
+            // Use environment variable for API base URL
+            const baseUrl = (import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
 
             const url = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?${key}=${encodeURIComponent(value)}`;
 
@@ -251,6 +252,8 @@ export function VerificationPage() {
                                         setEmail('');
                                         setManualBvn('');
                                         setError(null);
+                                        setOfficialImageLoaded(false);
+                                        setBvnImageLoaded(false);
                                     }}
                                     className="w-full mt-4 flex justify-center items-center py-2 px-4 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all"
                                 >
@@ -288,7 +291,9 @@ export function VerificationPage() {
                                                 <div className="h-32 w-32 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
                                                     <img
                                                         src={`${import.meta.env.DEV ? '/images' : 'https://rivers.thesmartapps.org/images'}/${data.employee_no || data.employment_number}.png`}
+                                                        onLoad={() => setOfficialImageLoaded(true)}
                                                         onError={(e) => {
+                                                            setOfficialImageLoaded(false);
                                                             e.currentTarget.style.display = 'none';
                                                             e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                                         }}
@@ -381,7 +386,9 @@ export function VerificationPage() {
                                                         ? `/bvn-images/bvn-image-${data.employee_no || data.employment_number}.jpg`
                                                         : `https://rivers.thesmartapps.org/bvn-images/bvn-image-${data.employee_no || data.employment_number}.jpg`
                                                     }
+                                                    onLoad={() => setBvnImageLoaded(true)}
                                                     onError={(e) => {
+                                                        setBvnImageLoaded(false);
                                                         // Hide image on error and show placeholder
                                                         e.currentTarget.style.display = 'none';
                                                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
@@ -431,10 +438,7 @@ export function VerificationPage() {
                                                 // Re-construct the params for re-verification
                                                 const id = data.employee_no || data.employment_number;
                                                 // We know we are searching by ID at this point usually
-                                                const baseUrl = import.meta.env.DEV
-                                                    ? ''
-                                                    : ((import.meta as { env: { [key: string]: string } }).env
-                                                        .VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
+                                                const baseUrl = (import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
 
                                                 const verifyUrl = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(id || '')}`;
 
@@ -463,13 +467,24 @@ export function VerificationPage() {
                                         <RefreshCw className={`ml-2 h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
                                     </button>
                                 ) : (
-                                    <button
-                                        onClick={handleProceed}
-                                        className="w-full mt-8 flex justify-center items-center py-4 px-6 border border-transparent rounded-xl text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-lg shadow-green-600/20 hover:shadow-green-600/40"
-                                    >
-                                        Proceed to Facial Verification
-                                        <Shield className="ml-2 h-5 w-5" />
-                                    </button>
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={handleProceed}
+                                            disabled={!officialImageLoaded && !bvnImageLoaded}
+                                            className="w-full mt-8 flex justify-center items-center py-4 px-6 border border-transparent rounded-xl text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-lg shadow-green-600/20 hover:shadow-green-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {(officialImageLoaded || bvnImageLoaded) ? 'Proceed to Facial Verification' : 'Facial Verification Disabled'}
+                                            <Shield className="ml-2 h-5 w-5" />
+                                        </button>
+                                        {!officialImageLoaded && !bvnImageLoaded && (
+                                            <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 flex items-center gap-3">
+                                                <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                                                <p className="text-xs text-orange-800 font-medium">
+                                                    Facial verification is unavailable because no reference images (Official or BVN) were found for this pensioner.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
