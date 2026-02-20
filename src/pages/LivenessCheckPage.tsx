@@ -331,12 +331,11 @@ export function LivenessCheckPage() {
     };
 
     return (
-        <div className="h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col overflow-hidden">
+        <div className="min-h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col overflow-hidden">
             <VerificationHeader />
 
-            {/* Main Content - Grows */}
-            <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-                <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-full">
+            <div className="flex-1 flex items-stretch justify-center px-3 py-4 sm:p-4 min-h-0">
+                <div className="w-full max-w-3xl bg-white rounded-none sm:rounded-2xl shadow-none sm:shadow-xl overflow-hidden flex flex-col max-h-full sm:max-h-[90vh]">
                     {!isStarted ? (
                         <VerificationStartScreen
                             employeeData={employeeData}
@@ -357,16 +356,16 @@ export function LivenessCheckPage() {
                             />
                         </div>
                     ) : isSubmissionComplete ? (
-                        <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
-                            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="flex flex-col items-center justify-center h-full px-4 py-6 sm:p-8 text-center space-y-6">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 rounded-full flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </div>
 
-                            <h2 className="text-2xl font-bold text-gray-900">Verification Failed</h2>
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Verification Failed</h2>
 
-                            <p className="text-gray-600 max-w-md">
+                            <p className="text-gray-600 max-w-md text-sm sm:text-base">
                                 Please proceed to the <span className="font-semibold text-gray-800">Rivers State Pension Board</span> for further review. Thank you.
                             </p>
 
@@ -387,25 +386,22 @@ export function LivenessCheckPage() {
 
                             <button
                                 onClick={() => navigate('/')}
-                                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
+                                className="px-5 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-md text-sm font-medium"
                             >
                                 Return Home
                             </button>
                         </div>
                     ) : (
-                        // Processing / Verification Screen (isVerified === true, but not complete and no error)
-                        <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
-                            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="flex flex-col items-center justify-center h-full px-4 py-6 sm:p-8 text-center space-y-6">
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
 
-                            <h2 className="text-xl font-bold text-gray-900">Verifying Identity...</h2>
+                            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Verifying Identity...</h2>
 
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 text-sm sm:text-base">
                                 Please wait while we verify your captured data against official records.
                                 <br />
                                 This may take a few moments.
                             </p>
-
-                            {/* Hidden debug info if needed, or completely removed */}
                         </div>
                     )}
                 </div>
