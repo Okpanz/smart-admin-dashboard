@@ -199,7 +199,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const brightness = calculateAverageBrightness();
         const ratios = calculateFaceRatios(landmarks, brightness);
 
-        // Draw Guide Frame (pass current countdown value for visual feedback)
+        // Draw Guide Frame (pass countdown so the user sees the timer on screen)
         drawGuideFrame(ratios.isPositioned, countdownValueRef.current);
 
         // Draw Directional Arrow if needed
@@ -259,7 +259,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const radiusX = canvas.width * 0.22;
         const radiusY = canvas.height * 0.35;
 
-        // Dim outside
+        // Dim outside the oval
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
@@ -269,7 +269,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         ctx.fill('evenodd');
         ctx.restore();
 
-        // Border — yellow while counting down, green when fully positioned
+        // Oval border — yellow while counting, green when positioned, white dashed otherwise
         const isCounting = countdown !== null && countdown > 0;
         ctx.save();
         ctx.beginPath();
@@ -280,14 +280,13 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         ctx.stroke();
         ctx.restore();
 
-        // Countdown number drawn inside the oval
-        if (countdown !== null && countdown > 0) {
+        // Countdown digit drawn inside the oval (only on this display canvas, not in captured image)
+        if (isCounting) {
             ctx.save();
             const fontSize = Math.round(radiusY * 0.7);
             ctx.font = `bold ${fontSize}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            // Shadow for readability
             ctx.shadowColor = 'rgba(0,0,0,0.7)';
             ctx.shadowBlur = 12;
             ctx.fillStyle = '#FACC15';
@@ -496,9 +495,16 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                 setMessage(`Hold still... ${HOLD_SECONDS}`);
 
                 countdownIntervalRef.current = setInterval(() => {
-                    // Read the live ref so we know if a reset already happened
+                    // Decrement first, then check — this ensures the full HOLD_SECONDS
+                    // elapses before capture fires (avoids early trigger at "1").
                     const current = countdownValueRef.current;
-                    if (current === null || current <= 1) {
+                    if (current === null) {
+                        // Safety: interval should have been cleared, bail out
+                        clearInterval(countdownIntervalRef.current!);
+                        return;
+                    }
+                    const next = current - 1;
+                    if (next <= 0) {
                         // Countdown finished — execute the step action
                         clearInterval(countdownIntervalRef.current!);
                         countdownIntervalRef.current = null;
@@ -513,10 +519,29 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                             // --- Capture frame ---
                             setMessage('📸 Capturing face...');
                             if (onCapture) {
-                                const canvas = canvasRef.current;
-                                if (canvas) {
-                                    const imageSrc = canvas.toDataURL('image/jpeg', 0.8);
-                                    onCapture(imageSrc);
+                                const video = videoRef.current;
+                                if (video) {
+                                    // Draw to a clean off-screen canvas — no oval, no digit, no landmarks
+                                    const offscreen = document.createElement('canvas');
+                                    offscreen.width = video.videoWidth;
+                                    offscreen.height = video.videoHeight;
+                                    const octx = offscreen.getContext('2d');
+                                    if (octx) {
+                                        const vw = video.videoWidth;
+                                        const vh = video.videoHeight;
+                                        const cropW = vw / ZOOM_FACTOR;
+                                        const cropH = vh / ZOOM_FACTOR;
+                                        const cropX = (vw - cropW) / 2;
+                                        const cropY = (vh - cropH) / 2;
+                                        // Mirror for front camera, same as the display canvas
+                                        if (facingMode === 'user') {
+                                            octx.translate(offscreen.width, 0);
+                                            octx.scale(-1, 1);
+                                        }
+                                        octx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, offscreen.width, offscreen.height);
+                                        const imageSrc = offscreen.toDataURL('image/jpeg', 0.9);
+                                        onCapture(imageSrc);
+                                    }
                                 }
                             }
                             setTimeout(() => {
@@ -551,8 +576,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
                             }, 1000);
                         }
                     } else {
-                        // Still counting — decrement
-                        const next = current - 1;
+                        // Still counting — update ref and message
                         countdownValueRef.current = next;
                         setMessage(`Hold still... ${next}`);
                     }

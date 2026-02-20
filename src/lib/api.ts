@@ -1,8 +1,11 @@
 import axios from 'axios';
 
-// Create an Axios instance
+// In dev, use a relative base URL so Vite's proxy forwards /api → rivers.thesmartapps.org (no CORS).
+// In production, use the env var or fall back to the production API origin.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:7001',
+  baseURL: import.meta.env.DEV
+    ? '/api'
+    : (import.meta.env.VITE_API_BASE_URL || 'https://rivers.thesmartapps.org/api'),
   headers: {
     'Content-Type': 'application/json',
   },
