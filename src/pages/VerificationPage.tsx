@@ -64,13 +64,14 @@ export function VerificationPage() {
             // Get the first key and value from params
             const [key, value] = Object.entries(params)[0];
 
-            // Use environment variable for API base URL
-            const baseUrl = (import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
-
-            const url = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?${key}=${encodeURIComponent(value)}`;
+            // In dev, use a relative URL so the Vite proxy handles CORS.
+            // In production, use the env var or fall back to the direct URL.
+            const url = import.meta.env.DEV
+                ? `/pensionaire/verify?${key}=${encodeURIComponent(value)}`
+                : `${(import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com').replace(/\/$/, '')}/pensionaire/verify?${key}=${encodeURIComponent(value)}`;
 
             console.group('Verification Request Debug');
-            console.log('Base URL:', baseUrl);
+            console.log('Mode:', import.meta.env.DEV ? 'DEV (proxy)' : 'PROD (direct)');
             console.log('Final URL:', url);
             console.log('Params:', { key, value });
             console.groupEnd();
@@ -84,9 +85,15 @@ export function VerificationPage() {
             } else {
                 setError(apiData?.message || 'Verification failed. Please check your details.');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Verification error:', err);
-            setError('Unable to verify. Please try again later or check your connection.');
+            // A Network Error (no response) typically means the proxy couldn't reach
+            // the upstream server — often a cold-start on Render.com free tier.
+            if (err?.code === 'ERR_NETWORK' || !err?.response) {
+                setError('Network error: could not reach the verification server. The server may be starting up — please wait 30 seconds and try again.');
+            } else {
+                setError(err?.response?.data?.message || 'Unable to verify. Please try again later or check your connection.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -438,9 +445,9 @@ export function VerificationPage() {
                                                 // Re-construct the params for re-verification
                                                 const id = data.employee_no || data.employment_number;
                                                 // We know we are searching by ID at this point usually
-                                                const baseUrl = (import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com');
-
-                                                const verifyUrl = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(id || '')}`;
+                                                const verifyUrl = import.meta.env.DEV
+                                                    ? `/pensionaire/verify?employee_no=${encodeURIComponent(id || '')}`
+                                                    : `${(import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com').replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(id || '')}`;
 
                                                 const response = await axios.get(verifyUrl);
                                                 const apiData = response.data;

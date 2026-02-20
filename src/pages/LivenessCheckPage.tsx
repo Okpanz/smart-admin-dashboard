@@ -127,10 +127,13 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const baseUrl =
-                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
 
-            const verifyUrl = `${baseUrl.replace(/\/$/, '')}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
+            // In dev, use relative URLs so Vite's proxy handles the request (avoids CORS).
+            // In production, use the full base URL.
+            const apiPrefix = import.meta.env.DEV ? '' : baseUrl.replace(/\/$/, '');
+
+            const verifyUrl = `${apiPrefix}/pensionaire/verify?employee_no=${encodeURIComponent(employeeNo)}`;
             console.log('Verification API URL:', verifyUrl);
 
             const verifyResponse = await axios.get(verifyUrl);
@@ -140,7 +143,7 @@ export function LivenessCheckPage() {
                 throw new Error('Verification endpoint returned HTML instead of JSON. Check deployment URL configuration.');
             }
 
-            const captureUrl = `${baseUrl.replace(/\/$/, '')}/i-am-alive/capture`;
+            const captureUrl = `${apiPrefix}/i-am-alive/capture`;
             console.log('Capture API URL:', captureUrl);
 
             const capturePayload = {
@@ -355,23 +358,32 @@ export function LivenessCheckPage() {
                         </div>
                     ) : isSubmissionComplete ? (
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </div>
 
-                            <h2 className="text-2xl font-bold text-gray-900">Verification Submitted!</h2>
+                            <h2 className="text-2xl font-bold text-gray-900">Verification Failed</h2>
 
                             <p className="text-gray-600 max-w-md">
-                                Thank you. Your liveness check has been successfully submitted for review.
+                                Please proceed to the <span className="font-semibold text-gray-800">Rivers State Pension Board</span> for further review. Thank you.
                             </p>
 
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-sm">
-                                <p className="text-sm text-blue-800 font-medium">
-                                    You may now close this window or return to the home page.
-                                </p>
-                            </div>
+                            {/* Image-match notice — only shown when face couldn't be matched */}
+                            {matchResult === 'no-match' && (
+                                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 max-w-sm w-full flex items-start gap-3 text-left">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                    </svg>
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-800">Image match could not be confirmed</p>
+                                        <p className="text-xs text-amber-700 mt-0.5">
+                                            Your submission was recorded, but the captured photo did not match the reference image on file. A reviewer will assess your submission manually.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 onClick={() => navigate('/')}

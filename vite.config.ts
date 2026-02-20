@@ -22,15 +22,20 @@ export default defineConfig({
         secure: false,
       },
       // Proxy for Liveness Check & Report APIs
+      // proxyTimeout / timeout are in ms — 90 s to handle Render.com cold-start delays
       '/pensionaire': {
         target: 'https://i-am-alive-sever.onrender.com',
         changeOrigin: true,
         secure: false,
+        proxyTimeout: 90000,
+        timeout: 90000,
       },
       '/i-am-alive': {
         target: 'https://i-am-alive-sever.onrender.com',
         changeOrigin: true,
         secure: false,
+        proxyTimeout: 90000,
+        timeout: 90000,
       },
     },
   },

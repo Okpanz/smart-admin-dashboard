@@ -41,6 +41,21 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     const lastGuidanceSpeakRef = useRef<number>(0);
     const lastGuidanceMsgRef = useRef<string>('');
 
+    // --- 2-second countdown before each capture/step-advance ---
+    // countdownValueRef drives the canvas drawing AND the UI message.
+    // No React state is needed for the number itself — setMessage() handles the text.
+    const HOLD_SECONDS = 5;
+    const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const countdownValueRef = useRef<number | null>(null);      // null = not counting
+
+    const clearCountdown = () => {
+        if (countdownIntervalRef.current !== null) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+        }
+        countdownValueRef.current = null;
+    };
+
     // Shared Constant for Zoom
     const ZOOM_FACTOR = 1.3;
 
@@ -184,8 +199,8 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         const brightness = calculateAverageBrightness();
         const ratios = calculateFaceRatios(landmarks, brightness);
 
-        // Draw Guide Frame
-        drawGuideFrame(ratios.isPositioned);
+        // Draw Guide Frame (pass current countdown value for visual feedback)
+        drawGuideFrame(ratios.isPositioned, countdownValueRef.current);
 
         // Draw Directional Arrow if needed
         const currentStepIndex = currentStepRef.current;
@@ -233,7 +248,7 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         }
     };
 
-    const drawGuideFrame = (isPositioned: boolean) => {
+    const drawGuideFrame = (isPositioned: boolean, countdown: number | null) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -254,15 +269,31 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
         ctx.fill('evenodd');
         ctx.restore();
 
-        // Border
+        // Border — yellow while counting down, green when fully positioned
+        const isCounting = countdown !== null && countdown > 0;
         ctx.save();
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = isPositioned ? '#00FF00' : '#FFFFFF';
-        if (!isPositioned) ctx.setLineDash([15, 10]);
+        ctx.lineWidth = isCounting ? 6 : 4;
+        ctx.strokeStyle = isCounting ? '#FACC15' : (isPositioned ? '#00FF00' : '#FFFFFF');
+        if (!isPositioned && !isCounting) ctx.setLineDash([15, 10]);
         ctx.stroke();
         ctx.restore();
+
+        // Countdown number drawn inside the oval
+        if (countdown !== null && countdown > 0) {
+            ctx.save();
+            const fontSize = Math.round(radiusY * 0.7);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Shadow for readability
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#FACC15';
+            ctx.fillText(String(countdown), centerX, centerY);
+            ctx.restore();
+        }
     };
 
     const drawDirectionalArrow = (direction: string) => {
@@ -440,13 +471,14 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
     };
 
     const checkCurrentStep = (ratios: FaceRatios) => {
-        const currentStep = currentStepRef.current;
+        const stepIndex = currentStepRef.current;
         const isProcessing = isProcessingRef.current;
-        if (isProcessing || currentStep >= steps.length) return;
+        if (isProcessing || stepIndex >= steps.length) return;
 
-        const step = steps[currentStep];
+        const step = steps[stepIndex];
         const isCorrect = step.check(ratios);
 
+        // Provide verbal guidance when face is not positioned
         if (!ratios.isPositioned && ratios.guidance) {
             const now = Date.now();
             if (now - lastGuidanceSpeakRef.current > 3000 || (ratios.guidance !== lastGuidanceMsgRef.current && now - lastGuidanceSpeakRef.current > 1500)) {
@@ -456,62 +488,94 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
             }
         }
 
-        if (isCorrect) {
-            if (!ratios.isPositioned) {
-                setMessage(ratios.guidance || 'Position your face in the frame');
-                return;
-            }
+        // --- Step condition passed: face must also be properly positioned ---
+        if (isCorrect && ratios.isPositioned) {
+            // If no countdown is running yet, start one
+            if (countdownValueRef.current === null) {
+                countdownValueRef.current = HOLD_SECONDS;
+                setMessage(`Hold still... ${HOLD_SECONDS}`);
 
-            isProcessingRef.current = true;
-            setIsProcessing(true);
+                countdownIntervalRef.current = setInterval(() => {
+                    // Read the live ref so we know if a reset already happened
+                    const current = countdownValueRef.current;
+                    if (current === null || current <= 1) {
+                        // Countdown finished — execute the step action
+                        clearInterval(countdownIntervalRef.current!);
+                        countdownIntervalRef.current = null;
+                        countdownValueRef.current = null;
 
-            if (currentStep === 0) {
-                setMessage('Capturing face...');
-                if (onCapture) {
-                    const canvas = canvasRef.current;
-                    if (canvas) {
-                        const imageSrc = canvas.toDataURL('image/jpeg', 0.8);
-                        onCapture(imageSrc);
-                    }
-                }
+                        // Only fire if still not processing (could have been reset)
+                        if (isProcessingRef.current) return;
+                        isProcessingRef.current = true;
+                        setIsProcessing(true);
 
-                setTimeout(() => {
-                    setMessage('✓ Face Captured! Get ready...');
-                    speak("Face captured. Get ready for the next step.");
-                }, 500);
-
-                setTimeout(() => {
-                    const nextStep = currentStep + 1;
-                    setCurrentStep(nextStep);
-                    setMessage(steps[nextStep].instruction);
-                    setIsProcessing(false);
-                }, 2000);
-
-            } else {
-                setMessage(`✓ ${step.instruction} - Verified!`);
-                speak("Good!");
-
-                setTimeout(() => {
-                    const nextStep = currentStep + 1;
-                    if (nextStep < steps.length) {
-                        setCurrentStep(nextStep);
-                        setMessage(steps[nextStep].instruction);
-                        setIsProcessing(false);
+                        if (stepIndex === 0) {
+                            // --- Capture frame ---
+                            setMessage('📸 Capturing face...');
+                            if (onCapture) {
+                                const canvas = canvasRef.current;
+                                if (canvas) {
+                                    const imageSrc = canvas.toDataURL('image/jpeg', 0.8);
+                                    onCapture(imageSrc);
+                                }
+                            }
+                            setTimeout(() => {
+                                setMessage('✓ Face Captured! Get ready...');
+                                speak('Face captured. Get ready for the next step.');
+                            }, 300);
+                            setTimeout(() => {
+                                const nextStep = stepIndex + 1;
+                                currentStepRef.current = nextStep;
+                                setCurrentStep(nextStep);
+                                setMessage(steps[nextStep].instruction);
+                                isProcessingRef.current = false;
+                                setIsProcessing(false);
+                            }, 2000);
+                        } else {
+                            // --- Head-turn step verified ---
+                            setMessage(`✓ ${step.instruction} - Verified!`);
+                            speak('Good!');
+                            setTimeout(() => {
+                                const nextStep = stepIndex + 1;
+                                if (nextStep < steps.length) {
+                                    currentStepRef.current = nextStep;
+                                    setCurrentStep(nextStep);
+                                    setMessage(steps[nextStep].instruction);
+                                    isProcessingRef.current = false;
+                                    setIsProcessing(false);
+                                } else {
+                                    setMessage('✓ Liveness check complete!');
+                                    cleanup();
+                                    if (onComplete) onComplete(true);
+                                }
+                            }, 1000);
+                        }
                     } else {
-                        setMessage('✓ Liveness check complete!');
-                        cleanup();
-                        if (onComplete) onComplete(true);
+                        // Still counting — decrement
+                        const next = current - 1;
+                        countdownValueRef.current = next;
+                        setMessage(`Hold still... ${next}`);
                     }
                 }, 1000);
             }
+            // else: countdown already running — keep waiting (face is still in position)
         } else {
+            // Condition no longer met (face moved or step not satisfied): reset countdown
+            if (countdownValueRef.current !== null) {
+                clearCountdown();
+            }
             if (!isProcessing) {
-                setMessage(step.instruction);
+                if (!ratios.isPositioned) {
+                    setMessage(ratios.guidance || 'Position your face in the frame');
+                } else {
+                    setMessage(step.instruction);
+                }
             }
         }
     };
 
     const cleanup = () => {
+        clearCountdown();
         if (cameraRef.current) {
             try { cameraRef.current.stop(); } catch (e) { console.warn(e); }
             cameraRef.current = null;
@@ -524,7 +588,9 @@ export function LivenessCheck({ onComplete, onError, onCapture }: LivenessCheckP
 
     const handleRetry = () => {
         cleanup();
+        currentStepRef.current = 0;
         setCurrentStep(0);
+        isProcessingRef.current = false;
         setIsProcessing(false);
         setMessage(steps[0].instruction);
         setTimeout(() => initializeFaceDetection(), 100);
