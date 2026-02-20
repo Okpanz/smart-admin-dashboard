@@ -18,7 +18,14 @@ export function RecentActivity() {
     const fetchLogs = async () => {
         try {
             const response = await api.get('/audit/logs');
-            const logs = response.data.data || [];
+            const baseData = response.data?.data ?? response.data;
+            let logs: { timestamp: string; performed_by: string; action: string }[] = [];
+
+            if (baseData && Array.isArray((baseData as { data?: unknown }).data)) {
+                logs = (baseData as { data: { timestamp: string; performed_by: string; action: string }[] }).data;
+            } else if (Array.isArray(baseData)) {
+                logs = baseData as { timestamp: string; performed_by: string; action: string }[];
+            }
             
             const formattedLogs = logs.map((log: { timestamp: string; performed_by: string; action: string }) => {
                 const date = new Date(log.timestamp);
@@ -99,4 +106,3 @@ export function RecentActivity() {
     </div>
   );
 }
-
