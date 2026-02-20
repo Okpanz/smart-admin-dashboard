@@ -619,9 +619,9 @@ export function LivenessReportPage() {
                                             </span>
                                         </div>
                                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                                            <p className="text-white text-xs font-medium">
+                                            {/* <p className="text-white text-xs font-medium">
                                                 Confidence: <span className="font-bold text-green-400">{selectedCapture.confidenceLevel}</span>
-                                            </p>
+                                            </p> */}
                                             <p className="text-gray-300 text-[10px] mt-0.5">
                                                 {format(new Date(selectedCapture.capturedAt))}
                                             </p>
