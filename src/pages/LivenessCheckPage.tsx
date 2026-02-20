@@ -357,31 +357,49 @@ export function LivenessCheckPage() {
                         </div>
                     ) : isSubmissionComplete ? (
                         <div className="flex flex-col items-center justify-center h-full px-4 py-6 sm:p-8 text-center space-y-6">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 rounded-full flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </div>
 
-                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Verification Failed</h2>
-
-                            <p className="text-gray-600 max-w-md text-sm sm:text-base">
-                                Please proceed to the <span className="font-semibold text-gray-800">Rivers State Pension Board</span> for further review. Thank you.
-                            </p>
-
-                            {/* Image-match notice — only shown when face couldn't be matched */}
-                            {matchResult === 'no-match' && (
-                                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 max-w-sm w-full flex items-start gap-3 text-left">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                    </svg>
-                                    <div>
-                                        <p className="text-sm font-semibold text-amber-800">Image match could not be confirmed</p>
-                                        <p className="text-xs text-amber-700 mt-0.5">
-                                            Your submission was recorded, but the captured photo did not match the reference image on file. A reviewer will assess your submission manually.
-                                        </p>
+                            {matchResult === 'match' ? (
+                                /* ── MATCH: green success ── */
+                                <>
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
                                     </div>
-                                </div>
+
+                                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Verification Successful!</h2>
+
+                                    <p className="text-gray-600 max-w-md text-sm sm:text-base">
+                                        Your identity has been verified. Your liveness check has been successfully submitted.
+                                    </p>
+                                </>
+                            ) : (
+                                /* ── NO-MATCH: red failure ── */
+                                <>
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 rounded-full flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </div>
+
+                                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Verification Failed</h2>
+
+                                    <p className="text-gray-600 max-w-md text-sm sm:text-base">
+                                        Please proceed to the <span className="font-semibold text-gray-800">Rivers State Pension Board</span> for further review. Thank you.
+                                    </p>
+
+                                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 max-w-sm w-full flex items-start gap-3 text-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                        </svg>
+                                        <div>
+                                            <p className="text-sm font-semibold text-amber-800">Image match could not be confirmed</p>
+                                            <p className="text-xs text-amber-700 mt-0.5">
+                                                Your submission was recorded, but the captured photo did not match the reference image on file. A reviewer will assess your submission manually.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <button
