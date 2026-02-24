@@ -54,6 +54,8 @@ interface Capture {
     empInfoId: string;
     serviceId: string;
     employee_record?: EmployeeRecord;
+    manualOverride?: boolean;
+    updatedBy?: string;
 }
 
 interface ApiResponse {
@@ -486,15 +488,22 @@ export function LivenessReportPage() {
                                             <div className="text-xs text-gray-500">Emp Info ID: {capture.empInfoId}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            {capture.imageMatch === 1 ? (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircle className="h-3 w-3 mr-1 self-center" /> Match
-                                                </span>
-                                            ) : (
-                                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    <XCircle className="h-3 w-3 mr-1 self-center" /> Mismatch
-                                                </span>
-                                            )}
+                                            <div className="flex flex-col gap-1">
+                                                {capture.imageMatch === 1 ? (
+                                                    <span className="px-2 py-1 inline-flex w-fit text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                        <CheckCircle className="h-3 w-3 mr-1 self-center" /> Match
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-1 inline-flex w-fit text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                        <XCircle className="h-3 w-3 mr-1 self-center" /> Mismatch
+                                                    </span>
+                                                )}
+                                                {capture.manualOverride && (
+                                                    <span className="px-2 py-0.5 inline-flex w-fit text-[10px] leading-4 font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                                        MANUAL
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div className="font-medium text-gray-900">{capture.confidenceLevel}</div>
@@ -632,10 +641,15 @@ export function LivenessReportPage() {
                                             alt="Captured"
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                         />
-                                        <div className="absolute top-3 right-3">
+                                        <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${selectedCapture.imageMatch === 1 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                                                 {selectedCapture.imageMatch === 1 ? 'MATCH' : 'NO MATCH'}
                                             </span>
+                                            {selectedCapture.manualOverride && (
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm bg-blue-500 text-white">
+                                                    MANUAL
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                                             {/* <p className="text-white text-xs font-medium">

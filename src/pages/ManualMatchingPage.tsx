@@ -81,19 +81,10 @@ export function ManualMatchingPage() {
         }
     };
 
-    const getProxiedImageUrl = (path: string) => {
-        if (!path) return '';
+    const getCaptureImageUrl = () => {
+        if (!capture) return '';
         const baseUrl = (import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com').replace(/\/$/, '');
-
-        if (path.startsWith('http')) {
-            // If it's an external URL (not containing our backend base URL), proxy it
-            if (!path.includes(baseUrl.replace('https://', '').replace('http://', ''))) {
-                return `${baseUrl}/i-am-alive/proxy-image?url=${encodeURIComponent(path)}`;
-            }
-            return path;
-        }
-
-        return `${baseUrl}/${path.startsWith('/') ? path.substring(1) : path}`;
+        return `${baseUrl}/i-am-alive/capture-image/${capture._id}`;
     };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,7 +107,7 @@ export function ManualMatchingPage() {
 
         try {
             // 1. Process Live Capture
-            const captureImageUrl = getProxiedImageUrl(capture.imagePath);
+            const captureImageUrl = getCaptureImageUrl();
 
             const liveImg = await faceapi.fetchImage(captureImageUrl);
             const liveDetection = await faceapi.detectSingleFace(liveImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 }))
@@ -228,7 +219,7 @@ export function ManualMatchingPage() {
                     </h3>
                     <div className="aspect-square bg-gray-900 rounded-xl overflow-hidden relative group">
                         <img
-                            src={getProxiedImageUrl(capture.imagePath)}
+                            src={getCaptureImageUrl()}
                             alt="Capture"
                             className="w-full h-full object-cover"
                         />
