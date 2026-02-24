@@ -8,11 +8,12 @@ import {
     Calendar,
     Loader2,
     Search,
-    Printer
+    Printer,
+    ShieldCheck
 } from 'lucide-react';
-const format = (date: Date) => date.toLocaleString();
-import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 interface VerificationData {
     firstName: string;
@@ -66,12 +67,15 @@ interface ApiResponse {
     };
 }
 
+const format = (date: Date) => date.toLocaleString();
+
 export function LivenessReportPage() {
     const [captures, setCaptures] = useState<Capture[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCapture, setSelectedCapture] = useState<Capture | null>(null);
     const { token } = useAuth();
+    const navigate = useNavigate();
 
     const [matchFilter, setMatchFilter] = useState<'all' | 'match' | 'no-match'>('all');
     const [dateFrom, setDateFrom] = useState('');
@@ -505,8 +509,16 @@ export function LivenessReportPage() {
                                             <button
                                                 onClick={() => setSelectedCapture(capture)}
                                                 className="text-primary-600 hover:text-primary-900 bg-primary-50 p-2 rounded-lg transition-colors"
+                                                title="View Details"
                                             >
                                                 <Eye className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/manual-match/${capture._id}`, { state: { capture } })}
+                                                className="ml-2 text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-lg transition-colors"
+                                                title="Official Manual Match"
+                                            >
+                                                <ShieldCheck className="h-4 w-4" />
                                             </button>
                                         </td>
                                     </tr>
@@ -558,6 +570,13 @@ export function LivenessReportPage() {
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => navigate(`/manual-match/${selectedCapture._id}`, { state: { capture: selectedCapture } })}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+                                >
+                                    <ShieldCheck className="h-4 w-4" />
+                                    Perform Official Match
+                                </button>
                                 <button
                                     onClick={handleSinglePrint}
                                     className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium shadow-sm"

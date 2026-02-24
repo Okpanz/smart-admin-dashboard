@@ -17,6 +17,7 @@ import { StaffDetails } from './pages/StaffDetails';
 import { LivenessCheckPage } from './pages/LivenessCheckPage';
 import { Sync } from './pages/Sync';
 import { LivenessReportPage } from './pages/LivenessReportPage';
+import { ManualMatchingPage } from './pages/ManualMatchingPage';
 import { Toaster } from 'react-hot-toast';
 
 const AppShell = ({ children }: { children: React.ReactNode }) => (
@@ -140,6 +141,14 @@ function App() {
           element={
             <AppShell>
               <LivenessReportRoute />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/manual-match/:id"
+          element={
+            <AppShell>
+              <ManualMatchingPage />
             </AppShell>
           }
         />
