@@ -80,7 +80,7 @@ export const VerificationSuccessScreen = ({
                             alt="Official"
                             className="h-full w-full object-cover"
                         />
-                        <div className="fallback-icon hidden absolute inset-0 flex items-center justify-center bg-gray-200">
+                        <div className="fallback-icon  absolute inset-0 flex items-center justify-center bg-gray-200">
                             <User className="h-8 w-8 text-gray-400" />
                         </div>
                     </div>
@@ -120,7 +120,7 @@ export const VerificationSuccessScreen = ({
                             alt="BVN"
                             className="h-full w-full object-cover"
                         />
-                        <div className="fallback-icon hidden absolute inset-0 flex items-center justify-center bg-gray-200">
+                        <div className="fallback-icon  absolute inset-0 flex items-center justify-center bg-gray-200">
                             <User className="h-8 w-8 text-gray-400 opacity-30" />
                         </div>
                     </div>

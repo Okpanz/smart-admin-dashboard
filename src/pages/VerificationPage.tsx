@@ -68,7 +68,7 @@ export function VerificationPage() {
             // In production, use the env var or fall back to the direct URL.
             const url = import.meta.env.DEV
                 ? `/pensionaire/verify?${key}=${encodeURIComponent(value)}`
-                : `${(import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-sever.onrender.com').replace(/\/$/, '')}/pensionaire/verify?${key}=${encodeURIComponent(value)}`;
+                : `${(import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com').replace(/\/$/, '')}/pensionaire/verify?${key}=${encodeURIComponent(value)}`;
 
             console.group('Verification Request Debug');
             console.log('Mode:', import.meta.env.DEV ? 'DEV (proxy)' : 'PROD (direct)');

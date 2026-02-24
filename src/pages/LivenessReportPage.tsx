@@ -100,7 +100,7 @@ export function LivenessReportPage() {
     const fetchStats = async () => {
         setStats(prev => ({ ...prev, isLoading: true }));
         try {
-            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             const [totalRes, todayRes, matchRes, noMatchRes] = await Promise.all([
@@ -134,7 +134,7 @@ export function LivenessReportPage() {
 
         try {
             const baseUrl =
-                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+                import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             const params: any = {

@@ -7,10 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://rivers.thesmartapps.org',
+        target: 'http://localhost:7001',
         changeOrigin: true,
         secure: false,
       },
+      // Keep images pointing to the external server as requested
       '/images': {
         target: 'https://rivers.thesmartapps.org',
         changeOrigin: true,
@@ -21,17 +22,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      // Proxy for Liveness Check & Report APIs
-      // proxyTimeout / timeout are in ms — 90 s to handle Render.com cold-start delays
+      // Proxy for Liveness Check & Report APIs to the local monolith
       '/pensionaire': {
-        target: 'https://i-am-alive-sever.onrender.com',
+        target: 'http://localhost:7001',
         changeOrigin: true,
         secure: false,
         proxyTimeout: 90000,
         timeout: 90000,
       },
       '/i-am-alive': {
-        target: 'https://i-am-alive-sever.onrender.com',
+        target: 'http://localhost:7001',
         changeOrigin: true,
         secure: false,
         proxyTimeout: 90000,

@@ -127,7 +127,7 @@ export function LivenessCheckPage() {
 
         try {
             const employeeNo = employeeData.employee_no || employeeData.employment_number;
-            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://i-am-alive-server.onrender.com';
+            const baseUrl = import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com';
 
             // In dev, use relative URLs so Vite's proxy handles the request (avoids CORS).
             // In production, use the full base URL.
