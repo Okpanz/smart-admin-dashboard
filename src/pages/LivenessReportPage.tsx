@@ -69,6 +69,15 @@ interface ApiResponse {
     };
 }
 
+interface CaptureParams {
+    page: number;
+    limit: number;
+    employee_no?: string;
+    from_date?: string;
+    to_date?: string;
+    match_status?: string;
+}
+
 const format = (date: Date) => date.toLocaleString();
 
 export function LivenessReportPage() {
@@ -143,7 +152,7 @@ export function LivenessReportPage() {
                 import.meta.env.VITE_VERIFICATION_API_BASE_URL || 'https://smart-verify-server.onrender.com';
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
-            const params: any = {
+            const params: CaptureParams = {
                 page,
                 limit,
             };
@@ -198,7 +207,7 @@ export function LivenessReportPage() {
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             // Fetch generic 'bulk' limit (e.g. 1000)
-            const params: any = {
+            const params: CaptureParams = {
                 page: 1,
                 limit: 1000,
             };
@@ -239,7 +248,7 @@ export function LivenessReportPage() {
             const url = `${baseUrl.replace(/\/$/, '')}/i-am-alive/captures`;
 
             // Fetch ALL data matching current filters
-            const params: any = {
+            const params: CaptureParams = {
                 page: 1,
                 limit: 10000, // Fetch up to 10000 records for export
             };
@@ -758,7 +767,7 @@ export function LivenessReportPage() {
                                                         </div>
                                                     </>
                                                 );
-                                            } catch (e) {
+                                            } catch {
                                                 return <p className="text-sm text-gray-500">Data mismatch or unavailable</p>;
                                             }
                                         })()}
@@ -836,10 +845,6 @@ export function LivenessReportPage() {
                                     <span className="font-bold">{item.imageMatch === 1 ? 'Match' : 'Mismatch'}</span>
                                 </div>
                                 <div>
-                                    <span className="text-gray-500 block">Confidence</span>
-                                    <span className="font-bold">{item.confidenceLevel}</span>
-                                </div>
-                                <div>
                                     <span className="text-gray-500 block">Service ID</span>
                                     <span className="font-mono">{item.serviceId}</span>
                                 </div>
@@ -859,7 +864,7 @@ export function LivenessReportPage() {
                                                 <div><span className="text-gray-500 block">NIN</span>{v.nin || '-'}</div>
                                             </>
                                         )
-                                    } catch (e) { return null }
+                                    } catch { return null }
                                 })()}
                             </div>
                         </div>
