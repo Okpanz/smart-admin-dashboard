@@ -305,9 +305,9 @@ export function ManualMatchingPage() {
                                         <p className={`text-sm font-bold ${matchResult.result === 'match' ? 'text-green-800' : 'text-red-800'}`}>
                                             {matchResult.result === 'match' ? 'VERIFIED MATCH' : 'MISMATCH DETECTED'}
                                         </p>
-                                        <p className={`text-xs ${matchResult.result === 'match' ? 'text-green-600' : 'text-red-600'}`}>
+                                        {/* <p className={`text-xs ${matchResult.result === 'match' ? 'text-green-600' : 'text-red-600'}`}>
                                             Confidence Score: {matchResult.score}%
-                                        </p>
+                                        </p> */}
                                     </div>
                                 </div>
 
