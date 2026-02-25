@@ -167,7 +167,7 @@ export function ManualMatchingPage() {
             const response = await axios.post(`${baseUrl}/i-am-alive/capture/update-match`, {
                 id: capture._id,
                 imageMatch: matchResult.result === 'match',
-                confidenceLevel: `${matchResult.score}%`,
+                // confidenceLevel: `${matchResult.score}%`,
                 manualOverride: true,
                 updatedBy: 'admin' // In a real app, get user info
             }, {
