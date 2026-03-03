@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Activity, Server, Database, HardDrive, RefreshCw, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import api from '../lib/api';
 
 interface HealthStatus {
@@ -24,7 +23,6 @@ interface HealthStatus {
 export function SystemHealth() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const fetchHealth = async () => {
     setIsLoading(true);
@@ -33,7 +31,6 @@ export function SystemHealth() {
       const data = response.data.data || response.data;
       
       setHealth(data);
-      setLastUpdated(new Date());
     } catch (err) {
       console.error('Health check failed:', err);
       setHealth({
@@ -69,194 +66,233 @@ export function SystemHealth() {
     return `${days}d ${hours}h ${minutes}m`;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'text-green-500';
-      case 'degraded': return 'text-yellow-500';
-      case 'down': return 'text-red-500';
-      default: return 'text-gray-500';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'healthy': return <CheckCircle className="h-6 w-6 text-green-500" />;
-      case 'degraded': return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
-      case 'down': return <XCircle className="h-6 w-6 text-red-500" />;
-      default: return <Activity className="h-6 w-6 text-gray-500" />;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Health</h1>
-          <p className="text-gray-500 mt-1">Real-time system performance and status monitoring</p>
-        </div>
-        <button 
-          onClick={fetchHealth}
-          disabled={isLoading}
-          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Overall Status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Overall Status</h3>
-            {health && getStatusIcon(health.status)}
-          </div>
-          <div className="text-3xl font-bold capitalize mb-2">
-            <span className={health ? getStatusColor(health.status) : ''}>
-              {health?.status || 'Unknown'}
-            </span>
-          </div>
-          <p className="text-sm text-gray-500">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </p>
-        </div>
+        .ff-root {
+          font-family: 'DM Sans', sans-serif;
+          padding: 2.5rem;
+          max-width: 960px;
+          color: #0f0f0f;
+          margin: 0 auto;
+        }
 
-        {/* Uptime */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">System Uptime</h3>
-            <Clock className="h-6 w-6 text-blue-500" />
-          </div>
-          <div className="text-3xl font-bold text-gray-900 mb-2">
-            {health ? formatUptime(health.uptime) : '-'}
-          </div>
-          <p className="text-sm text-gray-500">
-            Since last restart
-          </p>
-        </div>
+        .ff-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 2rem;
+          padding-bottom: 1.5rem;
+          border-bottom: 1.5px solid #e5e5e5;
+        }
 
-        {/* Active Services */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Active Services</h3>
-            <Server className="h-6 w-6 text-purple-500" />
-          </div>
-          <div className="text-3xl font-bold text-gray-900 mb-2">
-            {health ? Object.values(health.services).filter(Boolean).length : '-'} / 3
-          </div>
-          <p className="text-sm text-gray-500">
-            Operational components
-          </p>
-        </div>
-      </div>
+        .ff-title {
+          font-size: 1.5rem;
+          font-weight: 600;
+          letter-spacing: -0.03em;
+          margin: 0 0 0.2rem;
+        }
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Service Status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Component Status</h3>
+        .ff-subtitle {
+          font-size: 0.85rem;
+          color: #6b6b6b;
+          margin: 0;
+          font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .ff-section-label {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.68rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #aaa;
+          margin-bottom: 0.5rem;
+          display: block;
+        }
+
+        .ff-btn {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.82rem;
+          font-weight: 500;
+          padding: 0.55rem 1.1rem;
+          border-radius: 2px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.12s ease;
+          white-space: nowrap;
+        }
+        .ff-btn-primary {
+          background: #10b981;
+          color: white;
+        }
+        .ff-btn-primary:hover:not(:disabled) { background: #059669; }
+        .ff-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .ff-stats {
+          display: flex;
+          gap: 1.5rem;
+          align-items: center;
+        }
+        .ff-stat { text-align: right; }
+        .ff-stat-value {
+          display: block;
+          font-size: 1.5rem;
+          font-weight: 600;
+          letter-spacing: -0.04em;
+          line-height: 1;
+        }
+        .ff-stat-label {
+          font-size: 0.72rem;
+          color: #999;
+          font-family: 'IBM Plex Mono', monospace;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .ff-stat-divider {
+          width: 1px;
+          height: 2rem;
+          background: #e5e5e5;
+        }
+        .ff-table-wrap {
+          border: 1.5px solid #e5e5e5;
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .ff-table { width: 100%; border-collapse: collapse; }
+        .ff-thead th {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.68rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #999;
+          padding: 0.65rem 1rem;
+          text-align: left;
+          background: #fafafa;
+          border-bottom: 1.5px solid #e5e5e5;
+        }
+        .ff-row { border-bottom: 1px solid #f0f0f0; transition: background 0.1s; }
+        .ff-row:hover { background: #fafafa; }
+        .ff-td { padding: 0.85rem 1rem; font-size: 0.85rem; }
+        .ff-key { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #0f0f0f; }
+        .ff-desc { color: #777; font-size: 0.82rem; }
+        .ff-status {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.75rem;
+          font-weight: 500;
+          letter-spacing: 0.02em;
+        }
+        .ff-status.healthy { color: #10b981; }
+        .ff-status.degraded { color: #eab308; }
+        .ff-status.down { color: #ef4444; }
+      `}</style>
+
+      <div className="ff-root">
+        <div className="ff-header">
+          <div>
+            <h1 className="ff-title">System Health</h1>
+            <p className="ff-subtitle">Real-time system performance and status monitoring</p>
           </div>
-          <div className="divide-y divide-gray-200">
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-50 rounded-lg mr-4">
-                  <Server className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">API Server</p>
-                  <p className="text-sm text-gray-500">Node.js / Express</p>
-                </div>
-              </div>
-              <StatusBadge status={health?.services.api ? 'healthy' : 'down'} />
+          <div className="ff-stats">
+            <div className="ff-stat">
+              <span className="ff-stat-value">
+                {health ? Object.values(health.services).filter(Boolean).length : 0}
+              </span>
+              <span className="ff-stat-label">Healthy</span>
             </div>
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-50 rounded-lg mr-4">
-                  <Database className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Database</p>
-                  <p className="text-sm text-gray-500">MongoDB / SQLite</p>
-                </div>
-              </div>
-              <StatusBadge status={health?.services.database ? 'healthy' : 'down'} />
+            <div className="ff-stat-divider" />
+            <div className="ff-stat">
+              <span className="ff-stat-value">
+                {health ? formatUptime(health.uptime) : '—'}
+              </span>
+              <span className="ff-stat-label">Uptime</span>
             </div>
-            <div className="px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-50 rounded-lg mr-4">
-                  <HardDrive className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">File Storage</p>
-                  <p className="text-sm text-gray-500">Local Filesystem</p>
-                </div>
-              </div>
-              <StatusBadge status={health?.services.storage ? 'healthy' : 'down'} />
-            </div>
+            <div className="ff-stat-divider" />
+            <button
+              onClick={fetchHealth}
+              disabled={isLoading}
+              className="ff-btn ff-btn-primary"
+            >
+              Refresh
+            </button>
           </div>
         </div>
 
-        {/* System Metrics */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">System Metrics</h3>
-          </div>
-          <div className="p-6 space-y-6">
+        <span className="ff-section-label">Components</span>
+        <div className="ff-table-wrap" style={{ marginBottom: '1.5rem' }}>
+          <table className="ff-table">
+            <thead className="ff-thead">
+              <tr>
+                <th>Component</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="ff-row">
+                <td className="ff-td ff-key">API Server</td>
+                <td className="ff-td">
+                  <span className={`ff-status ${health?.services.api ? 'healthy' : 'down'}`}>
+                    {health?.services.api ? 'healthy' : 'down'}
+                  </span>
+                </td>
+              </tr>
+              <tr className="ff-row">
+                <td className="ff-td ff-key">Database</td>
+                <td className="ff-td">
+                  <span className={`ff-status ${health?.services.database ? 'healthy' : 'down'}`}>
+                    {health?.services.database ? 'healthy' : 'down'}
+                  </span>
+                </td>
+              </tr>
+              <tr className="ff-row">
+                <td className="ff-td ff-key">File Storage</td>
+                <td className="ff-td">
+                  <span className={`ff-status ${health?.services.storage ? 'healthy' : 'down'}`}>
+                    {health?.services.storage ? 'healthy' : 'down'}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <span className="ff-section-label">Metrics</span>
+        <div className="bg-white rounded-xl border border-gray-200 p-6" style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'grid', gap: '1rem' }}>
             <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">CPU Usage</span>
-                <span className="text-sm font-medium text-gray-900">{Number(health?.metrics.cpu).toFixed(2) || 0}%</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span className="ff-desc">CPU Usage</span>
+                <span className="ff-key">{Number(health?.metrics.cpu).toFixed(2) || 0}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
-                  style={{ width: `${health?.metrics.cpu || 0}%` }}
-                ></div>
+              <div style={{ width: '100%', background: '#e5e5e5', borderRadius: 2, height: 6 }}>
+                <div style={{ width: `${health?.metrics.cpu || 0}%`, background: '#10b981', height: 6, borderRadius: 2 }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">Memory Usage</span>
-                <span className="text-sm font-medium text-gray-900">{health?.metrics.memory || 0}%</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span className="ff-desc">Memory Usage</span>
+                <span className="ff-key">{health?.metrics.memory || 0}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-purple-600 h-2 rounded-full transition-all duration-500" 
-                  style={{ width: `${health?.metrics.memory || 0}%` }}
-                ></div>
+              <div style={{ width: '100%', background: '#e5e5e5', borderRadius: 2, height: 6 }}>
+                <div style={{ width: `${health?.metrics.memory || 0}%`, background: '#a855f7', height: 6, borderRadius: 2 }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700">Request Load</span>
-                <span className="text-sm font-medium text-gray-900">{health?.metrics.requests || 0} req/min</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span className="ff-desc">Request Load</span>
+                <span className="ff-key">{health?.metrics.requests || 0} req/min</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-500" 
-                  style={{ width: `${(health?.metrics.requests || 0) / 20}%` }}
-                ></div>
+              <div style={{ width: '100%', background: '#e5e5e5', borderRadius: 2, height: 6 }}>
+                <div style={{ width: `${(health?.metrics.requests || 0) / 20}%`, background: '#22c55e', height: 6, borderRadius: 2 }} />
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles = status === 'healthy' 
-    ? 'bg-green-100 text-green-800' 
-    : status === 'degraded'
-    ? 'bg-yellow-100 text-yellow-800'
-    : 'bg-red-100 text-red-800';
-    
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${styles}`}>
-      {status}
-    </span>
-  );
-}
-
-
+ 

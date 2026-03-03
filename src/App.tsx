@@ -18,6 +18,8 @@ import { LivenessCheckPage } from './pages/LivenessCheckPage';
 import { Sync } from './pages/Sync';
 import { LivenessReportPage } from './pages/LivenessReportPage';
 import { ManualMatchingPage } from './pages/ManualMatchingPage';
+import { FeatureFlags } from './pages/FeatureFlags';
+import Notifications from './pages/Notifications';
 import { Toaster } from 'react-hot-toast';
 
 const AppShell = ({ children }: { children: React.ReactNode }) => (
@@ -132,6 +134,22 @@ function App() {
           element={
             <AppShell>
               <Sync />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/feature-flags"
+          element={
+            <AppShell>
+              <FeatureFlags />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <AppShell>
+              <Notifications />
             </AppShell>
           }
         />

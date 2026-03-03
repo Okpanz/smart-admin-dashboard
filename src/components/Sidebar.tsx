@@ -35,6 +35,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'System Health', icon: Shield, path: '/health' },
     { name: 'Sync', icon: RefreshCw, path: '/sync' },
     { name: 'Liveness Report', icon: Activity, path: '/liveness-report' },
+    { name: 'Feature Flags', icon: Shield, path: '/feature-flags' },
+    { name: 'Notifications', icon: Shield, path: '/notifications' },
   ];
 
   const filteredNavItems = navItems.filter(item => {
