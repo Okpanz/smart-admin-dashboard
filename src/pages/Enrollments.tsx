@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, Download, AlertCircle, Eye } from 'lucide-react';
+import { Search, Download, AlertCircle, Eye, CheckCircle, XCircle } from 'lucide-react';
 import api from '../lib/api';
 import { Pagination } from '../components/common/Pagination';
 
@@ -10,7 +11,7 @@ interface Enrollment {
   fullname: string;
   department: string;
   serviceId: string;
-  status: 'pending' | 'verified' | 'rejected';
+  status: string;
   createdAt: string;
   biometrics: {
     images: string[];
@@ -211,16 +212,26 @@ export function Enrollments() {
 
 
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusDisplay = (enrollment: Enrollment) => {
+    switch (enrollment.status) {
       case 'verified':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
+      case 'ENROLLED':
+        return {
+          label: 'Verified',
+          classes: 'bg-green-100 text-green-700 border border-green-200'
+        };
       case 'rejected':
-        return 'bg-red-100 text-red-700';
+        return {
+          label: 'Rejected',
+          classes: 'bg-red-100 text-red-700 border border-red-200'
+        };
+      case 'DOCUMENT SCANNING':
+      case 'pending':
       default:
-        return 'bg-gray-100 text-gray-700';
+        return {
+          label: 'Unverified',
+          classes: 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+        };
     }
   };
 
@@ -413,17 +424,30 @@ export function Enrollments() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(enrollment.status)}`}>
-                        {enrollment.status === 'pending' ? 'Unverified' : enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
-                      </span>
+                      {(() => {
+                        const { label, classes } = getStatusDisplay(enrollment);
+                        return (
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${classes}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex flex-col space-y-1">
                         <span className="flex items-center gap-1" title="Images">
-                          {enrollment.biometrics?.images?.length > 0 ? '✅' : '❌'} Pictures ({enrollment.biometrics?.images?.length || 0})
+                          {enrollment.biometrics?.images?.length > 0 ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          )} Pictures ({enrollment.biometrics?.images?.length || 0})
                         </span>
                         <span className="flex items-center gap-1" title="Documents">
-                          {enrollment.documents?.length > 0 ? '✅' : '❌'} Documents ({enrollment.documents?.length || 0})
+                          {enrollment.documents?.length > 0 ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          )} Documents ({enrollment.documents?.length || 0})
                         </span>
                       </div>
                     </td>

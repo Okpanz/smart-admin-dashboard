@@ -14,7 +14,10 @@ interface Enrollment {
     serviceId?: string;
     biometrics: {
         images: string[];
-        fingerprints: string[];
+        fingerprints: {
+            path: string;
+            type: string;
+        }[];
     };
     documents: {
         uri: string;
@@ -81,6 +84,31 @@ export function EnrollmentDetails() {
         return `${baseUrl}/${cleanPath}`;
     };
 
+    const getStatusDisplay = () => {
+        if (!enrollment) return { label: '', classes: '' };
+
+        switch (enrollment.status) {
+            case 'verified':
+            case 'ENROLLED':
+                return {
+                    label: 'Verified',
+                    classes: 'bg-green-100 text-green-700 border border-green-200'
+                };
+            case 'rejected':
+                return {
+                    label: 'Rejected',
+                    classes: 'bg-red-100 text-red-700 border border-red-200'
+                };
+            case 'DOCUMENT SCANNING':
+            case 'pending':
+            default:
+                return {
+                    label: 'Unverified',
+                    classes: 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                };
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -115,43 +143,48 @@ export function EnrollmentDetails() {
                     </div>
                 </div>
 
-                {/* Top-Level Actions */}
-                <div className="flex items-center space-x-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${enrollment.status === 'verified' ? 'bg-green-100 text-green-700' :
-                        enrollment.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                        {enrollment.status === 'pending' ? 'Unverified' : enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
-                    </span>
+                {/* Top-Level Actions (Verify / Reject) */}
+                <div className="flex items-center space-x-4">
+                    {(() => {
+                        const { label, classes } = getStatusDisplay();
+                        return (
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Current Status</span>
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${classes}`}>
+                                    {label}
+                                </span>
+                            </div>
+                        );
+                    })()}
+
+                    <div className="h-10 w-px bg-gray-200 mx-2"></div>
+
+                    {(enrollment.status !== 'verified' && enrollment.status !== 'ENROLLED' && enrollment.status !== 'rejected') && (
+                        <div className="flex items-center space-x-3">
+                            <button
+                                type="button"
+                                disabled={processing}
+                                onClick={() => handleStatusUpdate('rejected')}
+                                className="inline-flex justify-center rounded-xl border border-red-200 px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-bold text-sm shadow-sm transition-all disabled:opacity-50"
+                            >
+                                {processing ? 'Processing...' : 'Reject'}
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={processing || !enrollment.biometrics?.images?.length || !enrollment.documents?.length}
+                                title={(!enrollment.biometrics?.images?.length || !enrollment.documents?.length) ? "Image and Document are required for verification" : ""}
+                                onClick={() => handleStatusUpdate('verified')}
+                                className="inline-flex justify-center rounded-xl border border-transparent shadow-lg px-8 py-2.5 bg-green-600 font-black text-white hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+                            >
+                                {processing ? 'Processing...' : 'Verify Enrollment'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Action Bar (Verify / Reject) */}
-            {(enrollment.status === 'pending' || enrollment.status === 'rejected' || enrollment.status === 'verified') && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-end space-x-3">
-                    {enrollment.status === 'pending' || enrollment.status === 'verified' ? (
-                        <button
-                            type="button"
-                            disabled={processing}
-                            onClick={() => handleStatusUpdate('rejected')}
-                            className="inline-flex justify-center rounded-lg border border-transparent px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
-                        >
-                            {processing ? 'Processing...' : 'Reject'}
-                        </button>
-                    ) : null}
 
-                    {enrollment.status === 'pending' || enrollment.status === 'rejected' ? (
-                        <button
-                            type="button"
-                            disabled={processing || !enrollment.biometrics?.images?.length || !enrollment.documents?.length}
-                            title={(!enrollment.biometrics?.images?.length || !enrollment.documents?.length) ? "Image and Document are required for verification" : ""}
-                            onClick={() => handleStatusUpdate('verified')}
-                            className="inline-flex justify-center rounded-lg border border-transparent shadow-sm px-6 py-2 bg-green-600 font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {processing ? 'Processing...' : 'Verify Enrollment'}
-                        </button>
-                    ) : null}
-                </div>
-            )}
 
             {/* Tabs */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -189,21 +222,56 @@ export function EnrollmentDetails() {
                 <div className="p-6">
                     {activeTab === 'overview' && (
                         <div className="space-y-8">
-                            {/* Images Preview (Moved to Top) */}
-                            {enrollment.biometrics?.images?.length > 0 && (
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Captured Images</h4>
-                                    <div className="flex gap-4 overflow-x-auto pb-4">
-                                        {enrollment.biometrics.images.map((img, idx) => (
-                                            <div key={idx} className="relative group">
-                                                <img
-                                                    src={getFileUrl(img)}
-                                                    alt={`Capture ${idx + 1}`}
-                                                    className="h-48 w-48 object-cover rounded-xl border-2 border-gray-100 shadow-sm transition-transform group-hover:scale-105"
-                                                />
+                            {/* Biometric Gallery (Side-by-Side Grid) */}
+                            {(enrollment.biometrics?.images?.length > 0 || enrollment.biometrics?.fingerprints?.length > 0) && (
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                                    {/* Images Preview */}
+                                    {enrollment.biometrics?.images?.length > 0 && (
+                                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                            <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center">
+                                                <User className="h-4 w-4 mr-2" />
+                                                Captured Images
+                                            </h4>
+                                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                                                {enrollment.biometrics.images.map((img, idx) => (
+                                                    <div key={idx} className="relative group flex-shrink-0">
+                                                        <img
+                                                            src={getFileUrl(img)}
+                                                            alt={`Capture ${idx + 1}`}
+                                                            className="h-40 w-40 object-cover rounded-xl border-2 border-gray-50 shadow-sm transition-transform group-hover:scale-105"
+                                                        />
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    )}
+
+                                    {/* Fingerprints Preview */}
+                                    {enrollment.biometrics?.fingerprints?.length > 0 && (
+                                        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                            <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center">
+                                                <Fingerprint className="h-4 w-4 mr-2" />
+                                                Captured Fingerprints
+                                            </h4>
+                                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                                                {enrollment.biometrics.fingerprints.map((fp, idx) => (
+                                                    <div key={idx} className="relative group flex-shrink-0">
+                                                        <div className="relative">
+                                                            <img
+                                                                src={getFileUrl(fp.path)}
+                                                                alt={fp.type || `Fingerprint ${idx + 1}`}
+                                                                className="h-40 w-40 object-contain bg-gray-50 rounded-xl border-2 border-gray-50 shadow-sm transition-transform group-hover:scale-105 p-3"
+                                                            />
+                                                            <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold py-1 px-2 rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-center uppercase tracking-wider">
+                                                                {fp.type || 'Unknown'}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[9px] font-bold text-gray-400 mt-2 text-center uppercase tracking-widest">{fp.type || `Finger ${idx + 1}`}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
