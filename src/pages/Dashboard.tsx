@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { CreditCard } from '../components/dashboard/CreditCard';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { StatCard } from '../components/dashboard/StatCard';
@@ -39,6 +41,7 @@ interface HealthData {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,7 @@ export function Dashboard() {
       setStats(data);
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
+      toast.error('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
     }
@@ -68,6 +72,7 @@ export function Dashboard() {
       setHealth(data);
     } catch (error) {
       console.error('Failed to fetch health:', error);
+      toast.error('Failed to load system health status');
     }
   };
 
@@ -82,36 +87,36 @@ export function Dashboard() {
         <CreditCard />
         <QuickActions />
         <div className="rounded-3xl bg-white p-6 shadow-sm flex-1">
-             <h3 className="text-lg font-bold text-gray-900 mb-4">System Status</h3>
-             <div className="space-y-4">
-                 <div className="flex justify-between items-center">
-                     <div className="flex items-center space-x-3">
-                         <div className={`h-2 w-2 rounded-full ${health?.services?.api ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                         <span className="text-sm font-medium text-gray-700">API Server</span>
-                     </div>
-                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.api ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                        {health?.services?.api ? 'Operational' : 'Down'}
-                     </span>
-                 </div>
-                 <div className="flex justify-between items-center">
-                     <div className="flex items-center space-x-3">
-                         <div className={`h-2 w-2 rounded-full ${health?.services?.database ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                         <span className="text-sm font-medium text-gray-700">Database</span>
-                     </div>
-                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.database ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                        {health?.services?.database ? 'Operational' : 'Down'}
-                     </span>
-                 </div>
-                 <div className="flex justify-between items-center">
-                     <div className="flex items-center space-x-3">
-                         <div className={`h-2 w-2 rounded-full ${health?.services?.storage ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                         <span className="text-sm font-medium text-gray-700">Storage</span>
-                     </div>
-                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.storage ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                        {health?.services?.storage ? 'Operational' : 'Down'}
-                     </span>
-                 </div>
-             </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">System Status</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className={`h-2 w-2 rounded-full ${health?.services?.api ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm font-medium text-gray-700">API Server</span>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.api ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                {health?.services?.api ? 'Operational' : 'Down'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className={`h-2 w-2 rounded-full ${health?.services?.database ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm font-medium text-gray-700">Database</span>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.database ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                {health?.services?.database ? 'Operational' : 'Down'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className={`h-2 w-2 rounded-full ${health?.services?.storage ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm font-medium text-gray-700">Storage</span>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${health?.services?.storage ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                {health?.services?.storage ? 'Operational' : 'Down'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -119,27 +124,30 @@ export function Dashboard() {
       <div className="w-full xl:w-[45%] flex flex-col gap-6">
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <StatCard 
-                label="Total Verifications" 
-                value={loading ? "..." : stats?.total?.value?.toLocaleString() || "0"} 
-                change={stats?.total?.change || "0%"} 
-                trend="up" 
-                icon={Users} 
-            />
-            <StatCard 
-                label="Verified" 
-                value={loading ? "..." : stats?.verified?.value?.toLocaleString() || "0"} 
-                change={stats?.verified?.change || "0%"} 
-                trend="up" 
-                icon={FileCheck} 
-            />
-             <StatCard 
-                label="Pending" 
-                value={loading ? "..." : stats?.pending?.value?.toLocaleString() || "0"} 
-                change={stats?.pending?.change || "0%"} 
-                trend={stats?.pending?.value ? "up" : "neutral"} 
-                icon={Building2} 
-            />
+          <StatCard
+            label="Total Enrollments"
+            value={loading ? "..." : stats?.total?.value?.toLocaleString() || "0"}
+            change={stats?.total?.change || "0%"}
+            trend="up"
+            icon={Users}
+            onClick={() => navigate('/enrollments?status=all')}
+          />
+          <StatCard
+            label="Verified"
+            value={loading ? "..." : stats?.verified?.value?.toLocaleString() || "0"}
+            change={stats?.verified?.change || "0%"}
+            trend="up"
+            icon={FileCheck}
+            onClick={() => navigate('/enrollments?status=verified')}
+          />
+          <StatCard
+            label="Unverified"
+            value={loading ? "..." : stats?.pending?.value?.toLocaleString() || "0"}
+            change={stats?.pending?.change || "0%"}
+            trend={stats?.pending?.value ? "up" : "neutral"}
+            icon={Building2}
+            onClick={() => navigate('/enrollments?status=pending')}
+          />
         </div>
 
         <EnrollmentTrendChart data={stats?.trends} />

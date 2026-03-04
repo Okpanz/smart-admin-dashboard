@@ -10,6 +10,7 @@ type Flag = {
   description?: string;
   enabled: boolean;
   service_id?: string;
+  service_ids?: string[];
 };
 
 type FlagApp = {
@@ -22,6 +23,7 @@ export function FeatureFlags() {
   const [apps, setApps] = useState<FlagApp[]>([]);
   const [selectedApp, setSelectedApp] = useState<string>('');
   const [flags, setFlags] = useState<Flag[]>([]);
+  const [services, setServices] = useState<Array<{ _id: string; name: string; service_id: number }>>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creatingApp, setCreatingApp] = useState(false);
@@ -29,6 +31,9 @@ export function FeatureFlags() {
   const [newFlag, setNewFlag] = useState({ key: '', description: '' });
   const [showNewApp, setShowNewApp] = useState(false);
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editServiceInput, setEditServiceInput] = useState<string>('');
+  const [serviceSearch, setServiceSearch] = useState<string>('');
 
   const getSocketBase = () => {
     if (import.meta.env.DEV) return undefined;
@@ -69,7 +74,17 @@ export function FeatureFlags() {
     }
   };
 
-  useEffect(() => { loadApps(); }, []);
+  const loadServices = async (): Promise<void> => {
+    try {
+      const res = await api.get('/services', { params: { limit: 500 } });
+      const raw = res.data?.data?.data || res.data?.data || [];
+      setServices(Array.isArray(raw) ? raw : []);
+    } catch {
+      // Non-fatal; service listing is auxiliary
+    }
+  };
+
+  useEffect(() => { loadApps(); loadServices(); }, []);
   useEffect(() => { loadFlags(); }, [selectedApp]);
 
   useEffect(() => {
@@ -102,7 +117,7 @@ export function FeatureFlags() {
       socket.on('connect', () => {
         if (pollTimer != null) { window.clearInterval(pollTimer); pollTimer = null; }
       });
-    } catch { socket = null; }
+  } catch { socket = null; /* ignore */ }
     return () => {
       if (pollTimer != null) window.clearInterval(pollTimer);
       socket?.disconnect();
@@ -168,8 +183,50 @@ export function FeatureFlags() {
     }
   };
 
+  const startEditServices = (flag: Flag) => {
+    setEditingKey(flag.key);
+    const initial = (flag.service_ids && flag.service_ids.length > 0
+      ? flag.service_ids
+      : (flag.service_id ? [flag.service_id] : [])).join(',');
+    setEditServiceInput(initial);
+    setServiceSearch('');
+  };
+
+  const saveServices = async (flag: Flag) => {
+    const list = editServiceInput
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+    try {
+      await api.put(`/feature-flags/${encodeURIComponent(flag.key)}`, {
+        app: selectedApp,
+        service_ids: list,
+      });
+      toast.success('Services updated');
+      setServiceSearch('');
+      setEditingKey(null);
+      setEditServiceInput('');
+      await loadFlags();
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to update services');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setEditServiceInput('');
+    setServiceSearch('');
+  };
+
   const enabledCount = flags.filter(f => f.enabled).length;
   const selectedAppName = apps.find(a => a.key === selectedApp)?.name;
+  const selectedServices = editServiceInput.split(',').map(x => x.trim()).filter(Boolean);
+  const filteredServices = services.filter(s => {
+    const q = serviceSearch.trim().toLowerCase();
+    if (!q) return true;
+    return s.name.toLowerCase().includes(q) || String(s.service_id).includes(q);
+  });
 
   return (
     <>
@@ -656,6 +713,7 @@ export function FeatureFlags() {
               <tr>
                 <th>Key</th>
                 <th>Description</th>
+                <th>Services</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -693,6 +751,137 @@ export function FeatureFlags() {
                   >
                     <td className="ff-td ff-key">{f.key}</td>
                     <td className="ff-td ff-desc">{f.description || '—'}</td>
+                    <td className="ff-td">
+                      {editingKey === f.key ? (
+                        <div style={{ minWidth: 320, maxWidth: 520 }}>
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                            <input
+                              placeholder="Search services..."
+                              value={serviceSearch}
+                              onChange={(e) => setServiceSearch(e.target.value)}
+                              style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: '1.5px solid #e5e5e5',
+                                borderRadius: 4,
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                fontSize: '0.8rem',
+                              }}
+                            />
+                            <button
+                              className="ff-btn ff-btn-ghost"
+                              onClick={() =>
+                                setEditServiceInput(services.map(s => String(s.service_id)).join(','))
+                              }
+                            >
+                              All
+                            </button>
+                            <button
+                              className="ff-btn ff-btn-ghost"
+                              onClick={() => setEditServiceInput('')}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 6,
+                            marginBottom: 8,
+                            minHeight: 32
+                          }}>
+                            {selectedServices.map(id => {
+                              const svc = services.find(s => String(s.service_id) === id);
+                              return (
+                                <span
+                                  key={id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '4px 8px',
+                                    background: '#10b98115',
+                                    border: '1px solid #10b981',
+                                    borderRadius: 20,
+                                    fontSize: 12,
+                                    fontFamily: "'IBM Plex Mono', monospace",
+                                  }}
+                                >
+                                  {svc?.name || id}
+                                  <span
+                                    style={{ cursor: 'pointer', fontWeight: 600 }}
+                                    onClick={() =>
+                                      setEditServiceInput(
+                                        selectedServices.filter(x => x !== id).join(',')
+                                      )
+                                    }
+                                  >
+                                    ✕
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <div style={{
+                            maxHeight: 180,
+                            overflowY: 'auto',
+                            border: '1.5px solid #e5e5e5',
+                            borderRadius: 4,
+                            padding: 4,
+                            background: 'white',
+                          }}>
+                            {filteredServices.map(s => {
+                              const id = String(s.service_id);
+                              const selected = selectedServices.includes(id);
+                              return (
+                                <div
+                                  key={s._id}
+                                  onClick={() => {
+                                    const updated = selected
+                                      ? selectedServices.filter(x => x !== id)
+                                      : [...selectedServices, id];
+                                    setEditServiceInput(updated.join(','));
+                                  }}
+                                  style={{
+                                    padding: '6px 8px',
+                                    cursor: 'pointer',
+                                    background: selected ? '#10b98115' : 'transparent',
+                                    borderRadius: 4,
+                                    fontSize: 13,
+                                    display: 'flex',
+                                    justifyContent: 'space-between'
+                                  }}
+                                >
+                                  <span>{s.name}</span>
+                                  {selected && <span>✓</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                            <button className="ff-btn ff-btn-primary" onClick={() => saveServices(f)}>
+                              Save
+                            </button>
+                            <button className="ff-btn ff-btn-ghost" onClick={cancelEdit}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {f.service_ids && f.service_ids.length > 0 ? (
+                            f.service_ids.map((sid, idx) => (
+                              <span key={idx} className="ff-app-chip">{sid}</span>
+                            ))
+                          ) : f.service_id ? (
+                            <span className="ff-app-chip">{f.service_id}</span>
+                          ) : (
+                            <span className="ff-app-chip">All services</span>
+                          )}
+                          <button className="ff-btn ff-btn-ghost" onClick={() => startEditServices(f)}>Edit</button>
+                        </div>
+                      )}
+                    </td>
                     <td className="ff-td">
                       <div className="ff-toggle-wrap">
                         <label className="ff-toggle" onClick={() => toggle(f.key)}>

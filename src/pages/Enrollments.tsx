@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Download, AlertCircle, Eye } from 'lucide-react';
 import api from '../lib/api';
-import { EnrollmentDetailsModal } from '../components/enrollment/EnrollmentDetailsModal';
 import { Pagination } from '../components/common/Pagination';
 
 interface Enrollment {
@@ -31,14 +31,16 @@ interface Enrollment {
 export function Enrollments() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [staff, setStaff] = useState<{ _id: string, name: string }[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const navigate = useNavigate();
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [searchParams] = useSearchParams();
+  const initialStatus = (searchParams.get('status') as any) || 'all';
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>(initialStatus);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -186,9 +188,17 @@ export function Enrollments() {
       }
     } catch (err) {
       console.error('Failed to fetch enrollments:', err);
+      setError('Failed to load enrollments. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    fetchStats();
+    fetchEnrollments();
+    fetchStaff();
   };
 
   const handlePageChange = (page: number) => {
@@ -196,17 +206,10 @@ export function Enrollments() {
   };
 
   const handleViewEnrollment = (enrollment: Enrollment) => {
-    setSelectedEnrollment(enrollment);
-    setIsModalOpen(true);
+    navigate(`/enrollments/${enrollment._id}`, { state: { enrollment } });
   };
 
-  const handleUpdateStatus = (id: string, status: string) => {
-    const newStatus = status as 'pending' | 'verified' | 'rejected';
-    setEnrollments(prev => prev.map(e => e._id === id ? { ...e, status: newStatus } : e));
-    if (selectedEnrollment && selectedEnrollment._id === id) {
-      setSelectedEnrollment({ ...selectedEnrollment, status: newStatus });
-    }
-  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -280,7 +283,7 @@ export function Enrollments() {
             >
               <option value="all">All Status</option>
               <option value="verified">Verified</option>
-              <option value="pending">Pending</option>
+              <option value="pending">Unverified</option>
               <option value="rejected">Rejected</option>
             </select>
           </div>
@@ -346,7 +349,7 @@ export function Enrollments() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biometrics</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Checklist</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -355,6 +358,21 @@ export function Enrollments() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     Loading enrollments...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <AlertCircle className="w-12 h-12 text-red-300 mb-2" />
+                      <p className="text-lg font-medium text-red-600">{error}</p>
+                      <button
+                        onClick={handleRetry}
+                        className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : enrollments.length === 0 ? (
@@ -396,13 +414,17 @@ export function Enrollments() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(enrollment.status)}`}>
-                        {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+                        {enrollment.status === 'pending' ? 'Unverified' : enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
-                        <span title="Images">{enrollment.biometrics.images.length} 📷</span>
-                        <span title="Fingerprints">{enrollment.biometrics.fingerprints.length} 👆</span>
+                      <div className="flex flex-col space-y-1">
+                        <span className="flex items-center gap-1" title="Images">
+                          {enrollment.biometrics?.images?.length > 0 ? '✅' : '❌'} Pictures ({enrollment.biometrics?.images?.length || 0})
+                        </span>
+                        <span className="flex items-center gap-1" title="Documents">
+                          {enrollment.documents?.length > 0 ? '✅' : '❌'} Documents ({enrollment.documents?.length || 0})
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -430,15 +452,6 @@ export function Enrollments() {
           itemsPerPage={itemsPerPage}
         />
       </div>
-
-      {selectedEnrollment && (
-        <EnrollmentDetailsModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          enrollment={selectedEnrollment}
-          onUpdateStatus={handleUpdateStatus}
-        />
-      )}
     </div>
   );
 }

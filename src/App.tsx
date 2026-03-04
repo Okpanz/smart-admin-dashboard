@@ -9,6 +9,7 @@ import { VerificationPage } from './pages/VerificationPage';
 import { Login } from './pages/Login';
 import { CreateStaff } from './pages/CreateStaff';
 import { Enrollments } from './pages/Enrollments';
+import { EnrollmentDetails } from './pages/EnrollmentDetails';
 import { Services } from './pages/Services';
 import { AuditLogs } from './pages/AuditLogs';
 import { SystemHealth } from './pages/SystemHealth';
@@ -76,6 +77,14 @@ function App() {
           element={
             <AppShell>
               <Enrollments />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/enrollments/:id"
+          element={
+            <AppShell>
+              <EnrollmentDetails />
             </AppShell>
           }
         />

@@ -15,6 +15,9 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const searchParams = new URLSearchParams(location.search);
+  const isExpired = searchParams.get('expired') === 'true';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -66,6 +69,12 @@ export function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isExpired && !error && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-xl flex items-center text-sm">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                Session expired. Please sign in again.
+              </div>
+            )}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl flex items-center text-sm">
                 <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
