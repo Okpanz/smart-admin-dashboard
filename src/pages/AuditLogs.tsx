@@ -133,6 +133,22 @@ export function AuditLogs() {
       );
     }
 
+    if (log.action === 'RESUME_VERIFICATION') {
+      const status = details.status;
+      const isAvailable = status === 'ResumeAvailable';
+      const label = isAvailable ? 'Resume Available' : 'No Resume Flow';
+      const classes = isAvailable ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800';
+      return (
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">{details.employeeName}</div>
+          <div className="text-xs text-gray-500">ID: {details.identifier}</div>
+          <div className={`text-xs mt-1 inline-flex px-2 py-0.5 rounded-full ${classes}`}>
+            {label}
+          </div>
+        </div>
+      );
+    }
+
     if (log.action === 'EXECUTE_ENROLLMENT_SYNC') {
       return (
         <div className="text-sm">

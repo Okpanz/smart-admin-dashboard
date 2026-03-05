@@ -214,19 +214,25 @@ export function Enrollments() {
 
   const getStatusDisplay = (enrollment: Enrollment) => {
     switch (enrollment.status) {
+      case 'VERIFIED':
       case 'verified':
       case 'ENROLLED':
         return {
           label: 'Verified',
           classes: 'bg-green-100 text-green-700 border border-green-200'
         };
+      case 'UNVERIFIED':
+      case 'pending':
+      case 'DOCUMENT SCANNING':
+        return {
+          label: 'Unverified',
+          classes: 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+        };
       case 'rejected':
         return {
           label: 'Rejected',
           classes: 'bg-red-100 text-red-700 border border-red-200'
         };
-      case 'DOCUMENT SCANNING':
-      case 'pending':
       default:
         return {
           label: 'Unverified',
