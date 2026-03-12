@@ -1,9 +1,13 @@
+import { useEffect, useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChartData {
   name: string;
   enrolled: number;
   verified: number;
+  unverified?: number;
 }
 
 interface Props {
@@ -11,21 +15,71 @@ interface Props {
 }
 
 export function EnrollmentTrendChart({ data = [] }: Props) {
-  // console.log(data)
-  const totalEnrolled = data.reduce((acc, curr) => acc + (curr.enrolled || 0), 0);
-  const totalVerified = data.reduce((acc, curr) => acc + (curr.verified || 0), 0);
+  useAuth();
+  const [trends, setTrends] = useState<ChartData[]>(data);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await api.get('/dashboard/stats');
+        const payload = res.data?.data || res.data;
+        const fetched: ChartData[] = payload?.trends || [];
+        if (mounted) setTrends(Array.isArray(fetched) ? fetched : []);
+      } catch {
+        if (mounted) setError('Failed to load trends');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchStats();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const dataForChart = trends.length ? trends : data;
+
+  const totalEnrolled = useMemo(
+    () => dataForChart.reduce((acc, curr) => acc + (curr.enrolled || 0), 0),
+    [dataForChart]
+  );
+  const totalVerified = useMemo(
+    () => dataForChart.reduce((acc, curr) => acc + (curr.verified || 0), 0),
+    [dataForChart]
+  );
   const verificationRate =
     totalEnrolled > 0 ? Math.round((totalVerified / totalEnrolled) * 100) : 0;
 
-  if (!data.length) {
+  // Removed scope label per request
+
+  if (loading) {
     return (
       <div className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-gray-900">Verification Trends</h3>
-          <span className="text-xs text-gray-400">This Year</span>
+          <span className="text-xs text-gray-400">Loading…</span>
         </div>
         <div className="h-40 flex items-center justify-center text-sm text-gray-400">
-          No verification data available yet.
+          Fetching scoped trends…
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !dataForChart.length) {
+    return (
+      <div className="rounded-3xl bg-white p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Verification Trends</h3>
+          {/* removed scope label per request */}
+        </div>
+        <div className="h-40 flex items-center justify-center text-sm text-gray-400">
+          {error || 'No verification data available yet.'}
         </div>
       </div>
     );
@@ -46,9 +100,10 @@ export function EnrollmentTrendChart({ data = [] }: Props) {
             <span className="h-3 w-3 rounded-full bg-primary-300" />
             <span className="text-xs text-gray-500 font-medium">Verified</span>
           </div>
-          <select className="bg-gray-50 border-none text-xs font-medium text-gray-500 rounded-lg px-2 py-1 focus:ring-0 cursor-pointer hover:bg-gray-100">
-            <option>This Year</option>
-          </select>
+          <div className="flex items-center space-x-2">
+            <span className="h-3 w-3 rounded-full bg-red-300" />
+            <span className="text-xs text-gray-500 font-medium">Unverified</span>
+          </div>
         </div>
       </div>
 
@@ -77,7 +132,7 @@ export function EnrollmentTrendChart({ data = [] }: Props) {
 
       <div className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} barSize={12} barGap={6}>
+          <BarChart data={dataForChart} barSize={12} barGap={6}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
             <XAxis
               dataKey="name"
@@ -106,6 +161,12 @@ export function EnrollmentTrendChart({ data = [] }: Props) {
             <Bar
               dataKey="verified"
               fill="#6ee7b7"
+              radius={[6, 6, 0, 0]}
+              maxBarSize={18}
+            />
+            <Bar
+              dataKey="unverified"
+              fill="#fca5a5"
               radius={[6, 6, 0, 0]}
               maxBarSize={18}
             />
