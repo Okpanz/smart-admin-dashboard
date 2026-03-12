@@ -192,7 +192,7 @@ export function AIChatBubble() {
     const [chats, setChats] = useState<ChatSummary[]>([]);
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([
-        { role: 'assistant', content: 'Hello! I am your **Smart Verify AI** assistant. How can I help you today?' }
+        { role: 'assistant', content: 'Hello! I am **SAI — Smartapps AI**. How can I help you today?' }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -404,7 +404,7 @@ export function AIChatBubble() {
                                         <span className="truncate block max-w-[140px]" title={currentChat.title}>
                                             {currentChat.title}
                                         </span>
-                                    ) : 'AI Assistant'}
+                                    ) : 'SAI — Smartapps AI'}
                                 </span>
                                 {!isMinimized && (
                                     <span className="text-green-600 text-[10px] font-medium flex items-center gap-1 mt-0.5">
@@ -547,7 +547,7 @@ export function AIChatBubble() {
                                                     {showMeta && (
                                                         <div className={`flex items-center gap-2 mb-1 ${isUser ? 'flex-row-reverse' : ''}`}>
                                                             <span className="text-[10px] font-medium text-gray-500">
-                                                                {isUser ? 'You' : 'AI'}
+                                                                {isUser ? 'You' : 'SAI'}
                                                             </span>
                                                             {time && <span className="text-[10px] text-gray-400">{time}</span>}
                                                             {!isUser && (
