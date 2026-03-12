@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, Download, AlertCircle, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Download, AlertCircle, Eye, CheckCircle, XCircle, Calendar, Building2, User as UserIcon, FileText, SlidersHorizontal } from 'lucide-react';
 import api from '../lib/api';
 import { Pagination } from '../components/common/Pagination';
+import { format } from 'date-fns';
 
 interface Enrollment {
   _id: string;
@@ -13,6 +14,8 @@ interface Enrollment {
   serviceId: string;
   status: string;
   createdAt: string;
+  dob?: string;
+  firstAppointmentDate?: string;
   biometrics: {
     images: string[];
     fingerprints: string[];
@@ -49,10 +52,12 @@ export function Enrollments() {
   const [stats, setStats] = useState({
     total: 0,
     verified: 0,
-    rejected: 0
+    rejected: 0,
+    unverified: 0,
   });
 
   const [isExporting, setIsExporting] = useState(false);
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,10 +99,11 @@ export function Enrollments() {
 
       const params = (status: string) => ({ limit: 1, status: status !== 'total' ? status : undefined });
 
-      const [totalRes, verifiedRes, rejectedRes] = await Promise.all([
+      const [totalRes, verifiedRes, rejectedRes, unverifiedRes] = await Promise.all([
         api.get('/mobile/v1/enrollments', { params: params('total') }),
         api.get('/mobile/v1/enrollments', { params: params('verified') }),
-        api.get('/mobile/v1/enrollments', { params: params('rejected') })
+        api.get('/mobile/v1/enrollments', { params: params('rejected') }),
+        api.get('/mobile/v1/enrollments', { params: params('unverified') })
       ]);
 
       const getCount = (res: any) => res.data.data?.meta?.total || res.data.meta?.total || 0;
@@ -105,7 +111,8 @@ export function Enrollments() {
       setStats({
         total: getCount(totalRes),
         verified: getCount(verifiedRes),
-        rejected: getCount(rejectedRes)
+        rejected: getCount(rejectedRes),
+        unverified: getCount(unverifiedRes)
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -115,6 +122,17 @@ export function Enrollments() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
+      const fmtDate = (v?: string) => {
+        if (!v) return '';
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? v : format(d, 'yyyy-MM-dd');
+      };
+      const fmtDateTime = (v?: string) => {
+        if (!v) return '';
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? v : format(d, 'yyyy-MM-dd HH:mm');
+      };
+
       const params: Record<string, string | number> = {
         page: 1,
         limit: 10000 // Fetch large amount
@@ -131,18 +149,41 @@ export function Enrollments() {
 
       if (Array.isArray(data) && data.length > 0) {
         const XLSX = await import('xlsx');
-        const exportData = data.map((item: any) => ({
-          'Employee ID': item.employeeId,
-          'Full Name': item.fullname,
-          'Department': item.department,
-          'Status': item.status,
-          'Date Created': new Date(item.createdAt).toLocaleString(),
-          'Images': item.biometrics?.images?.length || 0,
-          'Fingerprints': item.biometrics?.fingerprints?.length || 0
-        }));
+        const exportData = data.map((item: any) => {
+          const row: Record<string, string | number> = {};
+          row['Employee ID'] = item.employeeId || '';
+          row['Full Name'] = item.fullname || '';
+          row['Department'] = item.department || '';
+          row['DOB'] = fmtDate(item.dob);
+          row['Date Of First Appointment'] = fmtDate(item.firstAppointmentDate);
+          row['Status'] = item.status || '';
+          row['Date Created'] = fmtDateTime(item.createdAt);
+          row['Images'] = item.biometrics?.images?.length || 0;
+          row['Fingerprints'] = item.biometrics?.fingerprints?.length || 0;
+          return row;
+        });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
+
+        // Column widths (auto-fit approximation)
+        const headers = Object.keys(exportData[0]);
+        const colWidths = headers.map((h) => {
+          const headerLen = h.length;
+          const maxDataLen = exportData.reduce((max, r) => {
+            const v = r[h];
+            const len = String(v ?? '').length;
+            return Math.max(max, len);
+          }, 0);
+          const wch = Math.min(Math.max(headerLen, maxDataLen) + 2, 40);
+          return { wch };
+        });
+        (ws as any)['!cols'] = colWidths;
+
+        // Auto filter on header row
+        if (ws['!ref']) {
+          (ws as any)['!autofilter'] = { ref: ws['!ref'] };
+        }
         XLSX.utils.book_append_sheet(wb, ws, "Enrollments");
         XLSX.writeFile(wb, `Enrollments_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
       } else {
@@ -244,7 +285,7 @@ export function Enrollments() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Total Enrollments</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total.toLocaleString()}</p>
@@ -257,22 +298,35 @@ export function Enrollments() {
           <p className="text-xs font-medium text-gray-500 uppercase">Rejected</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{stats.rejected.toLocaleString()}</p>
         </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase">Unverified</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.unverified.toLocaleString()}</p>
+        </div>
       </div>
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Enrollments Report</h1>
-        <button
-          onClick={handleExport}
-          disabled={isExporting}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isExporting ? <span className="animate-spin mr-2">⏳</span> : <Download className="w-4 h-4 mr-2" />}
-          Export Excel
-        </button>
+        <h1 className="text-2xl font-bold text-gray-900">Enrollments</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFiltersMobile(v => !v)}
+            className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? <span className="animate-spin mr-0 md:mr-2">⏳</span> : <Download className="w-4 h-4 mr-0 md:mr-2" />}
+            <span className="hidden md:inline">Export Excel</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4">
+      <div className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 ${showFiltersMobile ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-4`}>
         <div className="flex-1 min-w-[200px] relative">
           <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
           <input
@@ -357,7 +411,7 @@ export function Enrollments() {
       </div>
 
       {/* Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -472,8 +526,76 @@ export function Enrollments() {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* Pagination */}
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center text-gray-500 py-8">Loading enrollments...</div>
+        ) : error ? (
+          <div className="text-center text-gray-500 py-8">
+            <AlertCircle className="w-8 h-8 text-red-300 mx-auto mb-2" />
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        ) : enrollments.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            <AlertCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm">No enrollments found</p>
+          </div>
+        ) : (
+          enrollments.map((enrollment) => {
+            const status = getStatusDisplay(enrollment);
+            return (
+              <div key={enrollment._id} className="bg-white border border-gray-200 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
+                      {enrollment.fullname.charAt(0)}
+                    </div>
+                    <div className="ml-3">
+                      <div className="text-sm font-semibold text-gray-900 line-clamp-1">{enrollment.fullname}</div>
+                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                        <UserIcon className="w-3 h-3" /> {enrollment.employeeId}
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.classes}`}>{status.label}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[11px] text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    <span className="line-clamp-1">{enrollment.department}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>{new Date(enrollment.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-600" />
+                      <span>Pix {enrollment.biometrics?.images?.length || 0}</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-3 h-3 text-gray-500" />
+                      <span>Docs {enrollment.documents?.length || 0}</span>
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleViewEnrollment(enrollment)}
+                    className="text-indigo-600 hover:text-indigo-800 inline-flex items-center"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="mt-4">
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Eye, Mail, Hash, Calendar } from 'lucide-react';
+import { Search, UserPlus, Eye, Mail, Hash, Calendar, SlidersHorizontal, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { Pagination } from '../components/common/Pagination';
@@ -19,6 +19,7 @@ export function StaffList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const navigate = useNavigate();
 
   // Pagination State
@@ -74,22 +75,28 @@ export function StaffList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-          <p className="text-gray-500 mt-1">Manage users and view their activities</p>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Staff</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFiltersMobile(v => !v)}
+            className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={() => navigate('/staff/create')}
+            className="inline-flex items-center px-3 py-2 bg-primary-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            <UserPlus className="h-4 w-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Add Staff</span>
+          </button>
         </div>
-        <button 
-          onClick={() => navigate('/staff/create')}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add New Staff
-        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className={`p-4 border-b border-gray-200 bg-gray-50 ${showFiltersMobile ? 'block' : 'hidden'} sm:block`}>
           <div className="relative max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -116,7 +123,8 @@ export function StaffList() {
             {error}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="overflow-x-auto hidden sm:block">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -190,6 +198,51 @@ export function StaffList() {
               </tbody>
             </table>
           </div>
+          
+          {/* Mobile Cards */}
+          <div className="sm:hidden p-3 space-y-3">
+            {users.map((user) => (
+              <div key={user._id} className="bg-white border border-gray-200 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="h-9 w-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-semibold">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="ml-3">
+                      <div className="text-sm font-semibold text-gray-900 line-clamp-1">{user.name}</div>
+                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                        <UserIcon className="w-3 h-3" /> {user.username}
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => navigate(`/staff/${user._id}`)}
+                    className="text-primary-600 hover:text-primary-800 inline-flex items-center"
+                    aria-label="View"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[11px] text-gray-600">
+                  <div className="flex items-center gap-1 capitalize">
+                    {/* simple role pill mimic */}
+                    <span className={`px-2 py-0.5 rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-700' : user.role === 'service_admin' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                      {user.role === 'service_admin' ? 'Service Admin' : user.role}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Hash className="w-3 h-3" />
+                    <span>{user.service_id || '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>{new Date(user.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
         
         {/* Pagination */}

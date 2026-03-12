@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { FileText, Clock, User, Search, Filter, X, Download, Calendar, Users, RefreshCw } from 'lucide-react';
+import { FileText, Clock, User, Search, Filter, X, Download, Calendar, Users, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import api from '../lib/api';
 import { Pagination } from '../components/common/Pagination';
 
@@ -202,24 +202,37 @@ export function AuditLogs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-          <p className="text-gray-500 mt-1">Monitor system activity and security events</p>
-        </div>
-        <div className="flex gap-3">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 relative"
+            aria-label="Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={handleRefresh}
             disabled={isRefreshing || isLoading}
-            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Refresh logs"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw className={`h-4 w-4 mr-0 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+          <button className="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <Download className="h-4 w-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button 
             onClick={() => setShowFilters(!showFilters)}
-            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors relative"
+            className="hidden sm:inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors relative"
           >
             <Filter className="h-4 w-4 mr-2" />
             Filters
@@ -229,16 +242,11 @@ export function AuditLogs() {
               </span>
             )}
           </button>
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </button>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Search Bar - Always visible */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className={`p-4 border-b border-gray-200 bg-gray-50 ${showFilters ? 'block' : 'hidden'} sm:block`}>
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="flex-1 min-w-[220px] relative">
               <Search className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" />
@@ -272,7 +280,6 @@ export function AuditLogs() {
           </div>
         </div>
 
-        {/* Advanced Filters - Collapsible */}
         {showFilters && (
           <div className="p-4 border-b border-gray-200 bg-gray-50/50">
             <div className="flex flex-wrap items-end gap-4">
@@ -388,7 +395,6 @@ export function AuditLogs() {
           </div>
         )}
 
-        {/* Table content remains exactly the same */}
         {isLoading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
@@ -412,8 +418,9 @@ export function AuditLogs() {
               </button>
             )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
+        ) : logs.length > 0 ? (
+          <div>
+          <div className="overflow-x-auto hidden md:block">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -477,7 +484,34 @@ export function AuditLogs() {
               </tbody>
             </table>
           </div>
-        )}
+          <div className="md:hidden p-3 space-y-3">
+            {logs.map((log) => (
+              <div key={log._id} className="bg-white border border-gray-200 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getActionColor(log.action)}`}>
+                    {formatAction(log.action)}
+                  </span>
+                  <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                    <Clock className="w-3 h-3" />
+                    <span>{new Date(log.timestamp).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-700 flex items-center gap-1">
+                  <User className="w-3 h-3 text-gray-500" />
+                  <span className="line-clamp-1">{log.performed_by_details?.name || log.performed_by || 'System'}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-gray-700 flex items-center gap-1">
+                  <FileText className="w-3 h-3 text-gray-500" />
+                  <span className="line-clamp-1">{log.target_resource}</span>
+                </div>
+                <div className="mt-2 text-[11px] text-gray-600">
+                  {renderDetails(log)}
+                </div>
+              </div>
+            ))}
+          </div>
+          </div>
+        ) : null}
 
         {/* Pagination */}
         {!isLoading && !error && logs.length > 0 && (
